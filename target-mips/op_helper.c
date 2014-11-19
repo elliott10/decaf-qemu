@@ -3702,3 +3702,7 @@ void helper_msa_st_df(CPUMIPSState *env, uint32_t df, uint32_t wd, uint32_t rs,
         break;
     }
 }
+
+#ifdef CONFIG_TCG_TAINT
+void helper_DECAF_taint_patch(void) { }
+#endif /* CONFIG_TCG_TAINT */

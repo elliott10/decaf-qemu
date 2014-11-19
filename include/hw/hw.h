@@ -14,6 +14,10 @@
 #include "migration/vmstate.h"
 #include "qemu/log.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 #ifdef NEED_CPU_H
 #if TARGET_LONG_BITS == 64
 #define qemu_put_betl qemu_put_be64
@@ -72,4 +76,7 @@ int qemu_boot_set(const char *boot_order);
 
 #endif
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 #endif

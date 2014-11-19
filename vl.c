@@ -114,6 +114,7 @@ int main(int argc, char **argv)
 #include "qemu/osdep.h"
 
 #include "ui/qemu-spice.h"
+#include "shared/DECAF_main_internal.h" // AWH decaf
 #include "qapi/string-input-visitor.h"
 #include "qapi/opts-visitor.h"
 #include "qom/object_interfaces.h"
@@ -123,6 +124,10 @@ int main(int argc, char **argv)
 
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
+
+#ifdef CONFIG_TCG_TAINT
+void garbage_collect_taint(int flag); // shared/taint_memory.c
+#endif /* CONFIG_TCG_TAINT */
 
 static const char *data_dir[16];
 static int data_dir_idx;
@@ -1880,6 +1885,9 @@ static void main_loop(void)
         ti = profile_getclock();
 #endif
         last_io = main_loop_wait(nonblocking);
+#ifdef CONFIG_TCG_TAINT
+	        garbage_collect_taint(0);
+#endif /* CONFIG_TCG_TAINT */
 #ifdef CONFIG_PROFILER
         dev_time += profile_getclock() - ti;
 #endif
@@ -2735,6 +2743,11 @@ out:
     return 0;
 }
 
+//extern void DECAF_cleanup_insn_cbs(void);
+extern void do_load_plugin_internal(Monitor* mon, const char* plugin_path);
+extern int DECAF_kvm_enabled;
+//end - Aravind
+
 int main(int argc, char **argv, char **envp)
 {
     int i;
@@ -2749,6 +2762,11 @@ int main(int argc, char **argv, char **envp)
     int optind;
     const char *optarg;
     const char *loadvm = NULL;
+    const char *after_loadvm = NULL; // AWH
+    const char *load_plugin = NULL; // AWH
+#ifdef CONFIG_VMI_ENABLE
+    FILE *vmi_profile_fp = NULL;
+#endif
     MachineClass *machine_class;
     const char *cpu_model;
     const char *vga_model = NULL;
@@ -3446,8 +3464,19 @@ int main(int argc, char **argv, char **envp)
 	    case QEMU_OPTION_loadvm:
 		loadvm = optarg;
 		break;
-            case QEMU_OPTION_full_screen:
-                full_screen = 1;
+		// AWH
+	    case QEMU_OPTION_after_loadvm:      // TEMU option
+		after_loadvm = optarg;
+		break;
+	    case QEMU_OPTION_load_plugin:       // DECAF option
+		load_plugin = optarg;
+		break;
+	    case QEMU_OPTION_toggle_kvm:
+		DECAF_kvm_enabled = optarg;
+		break;
+
+	    case QEMU_OPTION_full_screen:
+		full_screen = 1;
                 break;
             case QEMU_OPTION_no_frame:
                 no_frame = 1;
@@ -3801,9 +3830,17 @@ int main(int argc, char **argv, char **envp)
                     fprintf(stderr, "open %s: %s\n", optarg, strerror(errno));
                     exit(1);
                 }
-                break;
-            default:
-                os_parse_cmd_args(popt->index, optarg);
+		break;
+#if 0 //def CONFIG_VMI_ENABLE
+	    case QEMU_OPTION_vmi_profile:
+		vmi_profile_fp = fopen(optarg, "r");
+		if(vmi_profile_fp == NULL)
+			fprintf(stderr, "Cannot open %s: %s!\n", strerror(errno));
+
+		break;
+#endif
+	    default:
+		os_parse_cmd_args(popt->index, optarg);
             }
         }
     }
@@ -3861,6 +3898,13 @@ int main(int argc, char **argv, char **envp)
         list_cpus(stdout, &fprintf, cpu_model);
         exit(0);
     }
+
+#if 0
+    if(!vmi_profile_fp) {
+	    fprintf(stderr, "A VMI profile must be specified using \"-vmi-profile\" option.\n");
+	    exit(1);
+    }
+#endif
 
     /* Open the logfile at this point, if necessary. We can't open the logfile
      * when encountering either of the logging options (-d or -D) because the
@@ -4363,7 +4407,18 @@ int main(int argc, char **argv, char **envp)
     rom_load_done();
 
     qemu_system_reset(VMRESET_SILENT);
+
+#if 1 // AWH - Port of TEMU functionality
+    DECAF_init();                // some initializations have to be done
+    // before loadvm 
+    // AWH - FIXME: Change to new do_load_plugin() interface
+    if (loadvm == NULL && load_plugin)
+	    do_load_plugin_internal(cur_mon, load_plugin);
+#endif // AWH
+
     if (loadvm) {
+	    	// AWH - TODO: Handle all of the command line options here
+		// AWH - load_plugin and after_loadvm options
         if (load_vmstate(loadvm) < 0) {
             autostart = 0;
         }

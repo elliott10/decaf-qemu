@@ -169,6 +169,10 @@ typedef struct TCState TCState;
 struct TCState {
     target_ulong gpr[32];
     target_ulong PC;
+#ifdef CONFIG_TCG_TAINT
+    target_ulong taint_gpr[32];
+    target_ulong taint_PC;
+#endif /* CONFIG_TCG_TAINT */
     target_ulong HI[MIPS_DSP_ACC];
     target_ulong LO[MIPS_DSP_ACC];
     target_ulong ACX[MIPS_DSP_ACC];
@@ -216,6 +220,8 @@ struct TCState {
 
 typedef struct CPUMIPSState CPUMIPSState;
 struct CPUMIPSState {
+	target_ulong tempidx; // AWH - added for DECAF
+	target_ulong tempidx2; // AWH - added for DECAF
     TCState active_tc;
     CPUMIPSFPUContext active_fpu;
 

@@ -61,6 +61,10 @@
 
 #include "elf.h"
 
+#ifdef CONFIG_TCG_TAINT
+#include "tainting/tcg_taint.h"
+#endif /* CONFIG_TCG_TAINT */
+
 /* Forward declarations for functions declared in tcg-target.c and used here. */
 static void tcg_target_init(TCGContext *s);
 static void tcg_target_qemu_prologue(TCGContext *s);
@@ -617,6 +621,10 @@ static void tcg_temp_free_internal(int idx)
     TCGContext *s = &tcg_ctx;
     TCGTemp *ts;
     int k;
+
+#ifdef CONFIG_TCG_TAINT
+    if (taint_tracking_enabled) return;
+#endif /* CONFIG_TCG_TAINT */
 
 #if defined(CONFIG_DEBUG_TCG)
     s->temps_in_use--;
@@ -1422,7 +1430,16 @@ static inline void tcg_la_bb_end(TCGContext *s, uint8_t *dead_temps,
 /* Liveness analysis : update the opc_dead_args array to tell if a
    given input arguments is dead. Instructions updating dead
    temporaries are removed. */
+#ifdef CONFIG_TCG_TAINT
+/* AWH - If (presweep == 1), then this liveness analysis will turn
+   unneeded IRs into NOPNs without all of the side-effects (liveness
+   metadata won't be built, gen_opc_ptr will be in the right place, 
+   etc.).  Call this with presweep == 1 when doing a liveness prior
+   to adding in the taint IR. */
+/*static*/ void tcg_liveness_analysis(TCGContext *s, int presweep)
+#else
 static void tcg_liveness_analysis(TCGContext *s)
+#endif /* CONFIG_TCG_TAINT */
 {
     int i, op_index, nb_args, nb_iargs, nb_oargs, nb_ops;
     TCGOpcode op, op_new, op_new2;
@@ -1432,12 +1449,18 @@ static void tcg_liveness_analysis(TCGContext *s)
     uint16_t dead_args;
     uint8_t sync_args;
     bool have_op_new2;
-    
+#ifdef CONFIG_TCG_TAINT
+    if(!presweep)
+#endif /* CONFIG_TCG_TAINT */
     s->gen_opc_ptr++; /* skip end */
 
     nb_ops = s->gen_opc_ptr - s->gen_opc_buf;
 
+#ifdef CONFIG_TCG_TAINT
+    if (!presweep)
+#endif /* CONFIG_TCG_TAINT */
     s->op_dead_args = tcg_malloc(nb_ops * sizeof(uint16_t));
+
     s->op_sync_args = tcg_malloc(nb_ops * sizeof(uint8_t));
     
     dead_temps = tcg_malloc(s->nb_temps);
@@ -1463,7 +1486,11 @@ static void tcg_liveness_analysis(TCGContext *s)
 
                 /* pure functions can be removed if their result is not
                    used */
+#ifdef CONFIG_TCG_TAINT
+		if (!presweep && (call_flags & TCG_CALL_PURE)) {
+#else
                 if (call_flags & TCG_CALL_NO_SIDE_EFFECTS) {
+#endif /* CONFIG_TCG_TAINT */
                     for (i = 0; i < nb_oargs; i++) {
                         arg = args[i];
                         if (!dead_temps[arg] || mem_temps[arg]) {
@@ -1510,7 +1537,11 @@ static void tcg_liveness_analysis(TCGContext *s)
                             dead_temps[arg] = 0;
                         }
                     }
+#ifdef CONFIG_TCG_TAINT
+		    if (!presweep)
+#endif /* CONFIG_TCG_TAINT */
                     s->op_dead_args[op_index] = dead_args;
+
                     s->op_sync_args[op_index] = sync_args;
                 }
                 args--;
@@ -1671,7 +1702,11 @@ static void tcg_liveness_analysis(TCGContext *s)
                     }
                     dead_temps[arg] = 0;
                 }
+#ifdef CONFIG_TCG_TAINT
+		if (!presweep)
+#endif /* CONFIG_TCG_TAINT */
                 s->op_dead_args[op_index] = dead_args;
+
                 s->op_sync_args[op_index] = sync_args;
             }
             break;
@@ -2433,17 +2468,22 @@ static inline int tcg_gen_code_common(TCGContext *s,
     s->opt_time -= profile_getclock();
 #endif
 
+#ifndef CONFIG_TCG_TAINT
 #ifdef USE_TCG_OPTIMIZATIONS
     s->gen_opparam_ptr =
         tcg_optimize(s, s->gen_opc_ptr, s->gen_opparam_buf, tcg_op_defs);
 #endif
+#endif /* CONFIG_TCG_TAINT */
 
 #ifdef CONFIG_PROFILER
     s->opt_time += profile_getclock();
     s->la_time -= profile_getclock();
 #endif
-
+#ifdef CONFIG_TCG_TAINT
+        tcg_liveness_analysis(s, 0);
+#else
     tcg_liveness_analysis(s);
+#endif /* CONFIG_TCG_TAINT */
 
 #ifdef CONFIG_PROFILER
     s->la_time += profile_getclock();

@@ -291,6 +291,8 @@ clean:
 	rm -f $(filter-out %.tlb,$(TOOLS)) $(HELPERS-y) qemu-ga TAGS cscope.* *.pod *~ */*~
 	rm -f fsdev/*.pod
 	rm -rf .libs */.libs
+	#decaf
+	rm -f shared/*.d shared/*.o shared/hooks/*.d shared/hooks/*.o
 	rm -f qemu-img-cmds.h
 	@# May not be present in GENERATED_HEADERS
 	rm -f trace/generated-tracers-dtrace.dtrace*
@@ -562,4 +564,4 @@ endif
 
 # Include automatically generated dependency files
 # Dependencies in Makefile.objs files come from our recursive subdir rules
--include $(wildcard *.d tests/*.d)
+-include $(wildcard *.d tests/*.d shared/*.d) #decaf

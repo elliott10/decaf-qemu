@@ -123,6 +123,11 @@ typedef struct ARMGenericTimer {
 typedef struct CPUARMState {
     /* Regs for current mode.  */
     uint32_t regs[16];
+#ifdef CONFIG_TCG_TAINT
+    uint32_t taint_regs[16];
+#endif /* CONFIG_TCG_TAINT */
+    uint32_t tempidx; // AWH
+    uint32_t tempidx2; // AWH
 
     /* 32/64 switch only happens when taking and returning from
      * exceptions so the overlap semantics are taken care of then
@@ -317,6 +322,11 @@ typedef struct CPUARMState {
     uint32_t exclusive_info;
 #endif
 
+#ifdef CONFIG_TCG_TAINT
+    uint32_t taint_exclusive_addr;
+    uint32_t taint_exclusive_val;
+    uint32_t taint_exclusive_high;
+#endif /* CONFIG_TCG_TAINT */
     /* iwMMXt coprocessor state.  */
     struct {
         uint64_t regs[16];

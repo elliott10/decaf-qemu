@@ -25,6 +25,11 @@
 #include "exec/address-spaces.h"
 #include "exec/memory.h"
 
+#include "shared/DECAF_callback_to_QEMU.h"
+#ifdef CONFIG_TCG_TAINT
+#include "tcg.h"
+#endif /* CONFIG_TCG_TAINT */
+
 #define DATA_SIZE (1 << SHIFT)
 
 #if DATA_SIZE == 8
@@ -247,6 +252,13 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 #else
     res = glue(glue(ld, LSUFFIX), _le_p)((uint8_t *)haddr);
 #endif
+    //Hu-Mem read callback
+#ifndef SOFTMMU_CODE_ACCESS
+    if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))// host vitual addr+addend
+	    helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)),DATA_SIZE);
+#endif
+    //end
+
     return res;
 }
 
@@ -331,6 +343,13 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 
     haddr = addr + env->tlb_table[mmu_idx][index].addend;
     res = glue(glue(ld, LSUFFIX), _be_p)((uint8_t *)haddr);
+    //Hu-Mem read callback
+#ifndef SOFTMMU_CODE_ACCESS
+
+    if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
+	    helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)),DATA_SIZE);
+#endif
+    //end
     return res;
 }
 #endif /* DATA_SIZE > 1 */
@@ -379,6 +398,13 @@ static inline void glue(io_write, SUFFIX)(CPUArchState *env,
     cpu->mem_io_vaddr = addr;
     cpu->mem_io_pc = retaddr;
     io_mem_write(mr, physaddr, val, 1 << SHIFT);
+    //Hu-for io mem not dirty
+#ifndef SOFTMMU_CODE_ACCESS
+    if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
+	    helper_DECAF_invoke_mem_write_callback(addr,physaddr,DATA_SIZE);
+    }
+#endif
+    //end
 }
 
 void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
@@ -459,6 +485,12 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 #else
     glue(glue(st, SUFFIX), _le_p)((uint8_t *)haddr, val);
 #endif
+                //Hu-Mem write callback
+#ifndef SOFTMMU_CODE_ACCESS
+    if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
+	    helper_DECAF_invoke_mem_write_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)),DATA_SIZE);
+#endif
+    //end
 }
 
 #if DATA_SIZE > 1
@@ -536,6 +568,13 @@ void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 
     haddr = addr + env->tlb_table[mmu_idx][index].addend;
     glue(glue(st, SUFFIX), _be_p)((uint8_t *)haddr, val);
+    //Hu-Mem read callback
+#if defined(ADD_MEM_CB)
+    if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
+	    helper_DECAF_invoke_mem_write_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)),DATA_SIZE);
+#endif
+    //end
+
 }
 #endif /* DATA_SIZE > 1 */
 
@@ -547,6 +586,10 @@ glue(glue(helper_st, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_ulong addr,
 }
 
 #endif /* !defined(SOFTMMU_CODE_ACCESS) */
+#ifdef CONFIG_TCG_TAINT
+/* Include the "taint" version of these functions */
+#include "softmmu_taint_template.h"
+#endif /* CONFIG_TCG_TAINT */
 
 #undef READ_ACCESS_TYPE
 #undef SHIFT

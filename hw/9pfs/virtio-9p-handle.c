@@ -27,6 +27,16 @@
 #endif
 #include <sys/ioctl.h>
 
+#ifndef AT_REMOVEDIR
+#define AT_REMOVEDIR    0x200
+#endif
+#ifndef AT_EMPTY_PATH
+#define AT_EMPTY_PATH   0x1000  /* Allow empty relative pathname */
+#endif
+#ifndef O_PATH
+#define O_PATH    010000000
+#endif
+
 #ifndef XFS_SUPER_MAGIC
 #define XFS_SUPER_MAGIC  0x58465342
 #endif

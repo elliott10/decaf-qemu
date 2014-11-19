@@ -8,8 +8,10 @@ include $(SRC_PATH)/rules.mak
 $(call set-vpath, $(SRC_PATH))
 ifdef CONFIG_LINUX
 QEMU_CFLAGS += -I../linux-headers
+QEMU_CPPFLAGS += -I../linux-headers
 endif
 QEMU_CFLAGS += -I.. -I$(SRC_PATH)/target-$(TARGET_BASE_ARCH) -DNEED_CPU_H
+QEMU_CPPFLAGS += -I.. -I$(TARGET_PATH) -DNEED_CPU_H
 
 QEMU_CFLAGS+=-I$(SRC_PATH)/include
 
@@ -82,7 +84,7 @@ all: $(PROGS) stap
 
 #########################################################
 # cpu emulator library
-obj-y = exec.o translate-all.o cpu-exec.o
+obj-y = exec.o translate-all.o cpu-exec.o #taint_init.o
 obj-y += tcg/tcg.o tcg/optimize.o
 obj-$(CONFIG_TCG_INTERPRETER) += tci.o
 obj-$(CONFIG_TCG_INTERPRETER) += disas/tci.o
@@ -91,6 +93,17 @@ obj-y += target-$(TARGET_BASE_ARCH)/
 obj-y += disas.o
 obj-$(call notempty,$(TARGET_XML_FILES)) += gdbstub-xml.o
 obj-$(call lnot,$(CONFIG_KVM)) += kvm-stub.o
+
+# AWH decaf
+#libobj-y += libdecaf.a
+obj-y += $(LIBDECAF)
+#libobj-y += DECAF_main_x86.o
+obj-y += DECAF_target.o
+LIBS+=-ldl
+
+# HELPER_CFLAGS is used for all the code compiled with static register
+# variables
+op_helper.o ldst_helper.o user-exec.o shared/DECAF_callback.o: QEMU_CFLAGS += $(HELPER_CFLAGS)
 
 obj-$(CONFIG_LIBDECNUMBER) += libdecnumber/decContext.o
 obj-$(CONFIG_LIBDECNUMBER) += libdecnumber/decNumber.o
@@ -104,6 +117,7 @@ obj-$(CONFIG_LIBDECNUMBER) += libdecnumber/dpd/decimal128.o
 ifdef CONFIG_LINUX_USER
 
 QEMU_CFLAGS+=-I$(SRC_PATH)/linux-user/$(TARGET_ABI_DIR) -I$(SRC_PATH)/linux-user
+QEMU_CPPFLAGS+=-I$(SRC_PATH)/linux-user/$(TARGET_ABI_DIR) -I$(SRC_PATH)/linux-user
 
 obj-y += linux-user/
 obj-y += gdbstub.o thunk.o user-exec.o
@@ -134,7 +148,18 @@ obj-$(CONFIG_KVM) += kvm-all.o
 obj-y += memory.o savevm.o cputlb.o
 obj-y += memory_mapping.o
 obj-y += dump.o
-LIBS+=$(libs_softmmu)
+#LIBS+=$(libs_softmmu)
+#decaf
+LIBS+=$(libs_softmmu) -lrt
+#LIBS+=-lz -lrt
+
+QEMU_CPPFLAGS += $(GLIB_CFLAGS)
+
+ifeq ($(TARGET_BASE_ARCH), i386)
+#QEMU_CFLAGS += -I$(SRC_PATH)/shared/xed2/xed2-ia32/include
+#QEMU_CPPFLAGS += -I$(SRC_PATH)/shared/xed2/xed2-ia32/include
+#LIBS+=$(SRC_PATH)/shared/xed2/xed2-ia32/lib/libxed.a
+endif
 
 # xen support
 obj-$(CONFIG_XEN) += xen-common.o
@@ -175,6 +200,10 @@ all-obj-y += $(common-obj-y)
 all-obj-y += $(target-obj-y)
 all-obj-$(CONFIG_SOFTMMU) += $(block-obj-y)
 
+libdecaf.a: $(LIBDECAF)
+	rm -f $@
+	$(AR) rcs $@ $(LIBDECAF)
+
 # build either PROG or PROGW
 $(QEMU_PROG_BUILD): $(all-obj-y) ../libqemuutil.a ../libqemustub.a
 	$(call LINK,$^)
@@ -191,6 +220,7 @@ qmp-commands-old.h: $(SRC_PATH)/qmp-commands.hx
 clean:
 	rm -f *.a *~ $(PROGS)
 	rm -f $(shell find . -name '*.[od]')
+	rm -f shared/*.o shared/hooks/*.o shared/utils/*.o shared/tainting/*.o #decaf
 	rm -f hmp-commands.h qmp-commands-old.h gdbstub-xml.c
 ifdef CONFIG_TRACE_SYSTEMTAP
 	rm -f *.stp

@@ -21,6 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#ifndef __TCG_H__ /* AWH */
+#define __TCG_H__
 
 #ifndef TCG_H
 #define TCG_H
@@ -184,12 +186,16 @@ typedef struct TCGPool {
 #define TCG_POOL_CHUNK_SIZE 32768
 
 #define TCG_MAX_LABELS 512
-
+#ifdef CONFIG_TCG_TAINT
+#define TCG_MAX_TEMPS 2048
+#define TCG_STATIC_CALL_ARGS_SIZE (32 * 10 * 2)
+#else
 #define TCG_MAX_TEMPS 512
 
 /* when the size of the arguments of a called function is smaller than
    this value, they are statically allocated in the TB stack frame */
 #define TCG_STATIC_CALL_ARGS_SIZE 128
+#endif /* CONFIG_TCG_TAINT */
 
 typedef enum TCGType {
     TCG_TYPE_I32,
@@ -891,3 +897,4 @@ void helper_be_stq_mmu(CPUArchState *env, target_ulong addr, uint64_t val,
 #endif /* CONFIG_SOFTMMU */
 
 #endif /* TCG_H */
+#endif /* __TCG_H__ */

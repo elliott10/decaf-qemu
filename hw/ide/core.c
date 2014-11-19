@@ -35,6 +35,12 @@
 
 #include <hw/ide/internal.h>
 
+#ifdef CONFIG_TCG_TAINT
+// AWH - From taintcheck_opt.h
+extern int taintcheck_chk_hdin(int size, int64_t sect_num, uint32_t offset, void *s);
+extern int taintcheck_chk_hdout(int size, int64_t sect_num, uint32_t offset, void *s);
+#endif /* CONFIG_TCG_TAINT */
+
 /* These values were based on a Seagate ST3500418AS but have been modified
    to make more sense in QEMU */
 static const int smart_attributes[][12] = {
@@ -2007,6 +2013,9 @@ void ide_data_writew(void *opaque, uint32_t addr, uint32_t val)
         return;
     }
 
+#ifdef CONFIG_TCG_TAINT
+    taintcheck_chk_hdout(2, ide_get_sector(s), s->data_ptr-s->io_buffer, s->bs);
+#endif /* CONFIG_TCG_TAINT */
     p = s->data_ptr;
     *(uint16_t *)p = le16_to_cpu(val);
     p += 2;
@@ -2028,6 +2037,9 @@ uint32_t ide_data_readw(void *opaque, uint32_t addr)
         return 0;
     }
 
+#ifdef CONFIG_TCG_TAINT
+    taintcheck_chk_hdin(2, ide_get_sector(s), s->data_ptr-s->io_buffer, s->bs);
+#endif /* CONFIG_TCG_TAINT */
     p = s->data_ptr;
     ret = cpu_to_le16(*(uint16_t *)p);
     p += 2;
@@ -2049,6 +2061,9 @@ void ide_data_writel(void *opaque, uint32_t addr, uint32_t val)
         return;
     }
 
+#ifdef CONFIG_TCG_TAINT
+    taintcheck_chk_hdout(4, ide_get_sector(s), s->data_ptr-s->io_buffer, s->bs);
+#endif /* CONFIG_TCG_TAINT */
     p = s->data_ptr;
     *(uint32_t *)p = le32_to_cpu(val);
     p += 4;
@@ -2070,6 +2085,9 @@ uint32_t ide_data_readl(void *opaque, uint32_t addr)
         return 0;
     }
 
+#ifdef CONFIG_TCG_TAINT
+    taintcheck_chk_hdin(4, ide_get_sector(s), s->data_ptr-s->io_buffer, s->bs);
+#endif /* CONFIG_TCG_TAINT */
     p = s->data_ptr;
     ret = cpu_to_le32(*(uint32_t *)p);
     p += 4;

@@ -24,6 +24,12 @@
 #include "qemu/host-utils.h"
 #include "exec/cpu_ldst.h"
 
+#ifdef CONFIG_TCG_TAINT
+#include "../shared/tainting/taintcheck_opt.h"
+#endif /* CONFIG_TCG_TAINT */
+
+#include "../shared/DECAF_main.h"
+
 #define FPU_RC_MASK         0xc00
 #define FPU_RC_NEAR         0x000
 #define FPU_RC_DOWN         0x400
@@ -991,8 +997,11 @@ void helper_fstenv(CPUX86State *env, target_ulong ptr, int data32)
         cpu_stl_data(env, ptr, env->fpuc);
         cpu_stl_data(env, ptr + 4, fpus);
         cpu_stl_data(env, ptr + 8, fptag);
-        cpu_stl_data(env, ptr + 12, 0); /* fpip */
-        cpu_stl_data(env, ptr + 16, 0); /* fpcs */
+        //cpu_stl_data(env, ptr + 12, 0); /* fpip */
+        //cpu_stl_data(env, ptr + 16, 0); /* fpcs */
+	//added by Hu for better fpu emulation
+	cpu_stl_data(env, ptr + 12, cpu_single_env->fpip_t);
+	cpu_stl_data(env, ptr + 16, cpu_single_env->fpcs_t);
         cpu_stl_data(env, ptr + 20, 0); /* fpoo */
         cpu_stl_data(env, ptr + 24, 0); /* fpos */
     } else {

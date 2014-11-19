@@ -35,7 +35,13 @@
 #include "cpu.h"
 #include "trace.h"
 #include "disas/disas.h"
+#ifdef CONFIG_TCG_TAINT //decaf
+#include "tcg-op.h"
+#include "tainting/taint_memory.h"
+#include "tainting/tcg_taint.h"
+#else
 #include "tcg.h"
+#endif /* CONFIG_TCG_TAINT */
 #if defined(CONFIG_USER_ONLY)
 #include "qemu.h"
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
@@ -157,6 +163,14 @@ int cpu_gen_code(CPUArchState *env, TranslationBlock *tb, int *gen_code_size_ptr
 #endif
     tcg_func_start(s);
 
+#ifdef CONFIG_TCG_TAINT
+    if (taint_tracking_enabled)
+	    clean_shadow_arg();
+#endif /* CONFIG_TCG_TAINT */
+#ifdef CONFIG_TCG_IR_LOG
+    tb->DECAF_logged = 0; /* AWH - Generating new code, so this TB isn't on disk */
+#endif /* CONFIG_TCG_IR_LOG */
+
     gen_intermediate_code(env, tb);
 
     trace_translate_block(tb, tb->pc, tb->tc_ptr);
@@ -215,6 +229,14 @@ static int cpu_restore_state_from_tb(CPUState *cpu, TranslationBlock *tb,
     ti = profile_getclock();
 #endif
     tcg_func_start(s);
+
+#ifdef CONFIG_TCG_TAINT
+    if (taint_tracking_enabled)
+	    clean_shadow_arg();
+#endif /* CONFIG_TCG_TAINT */
+#ifdef CONFIG_TCG_IR_LOG
+    tb->DECAF_logged = 0; /* AWH - Generating new code, so this TB isn't on disk */
+#endif /* CONFIG_TCG_IR_LOG */
 
     gen_intermediate_code_pc(env, tb);
 
