@@ -13,6 +13,10 @@
 
 #include "qemu-common.h"
 #include "qapi/error.h"
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 
 /* Configuration */
 
@@ -71,4 +75,7 @@ void hd_geometry_guess(BlockBackend *blk,
                        int *ptrans);
 int hd_bios_chs_auto_trans(uint32_t cyls, uint32_t heads, uint32_t secs);
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 #endif

@@ -226,6 +226,14 @@ unset target_list
 # Distributions want to ensure that several features are compiled in, and it
 # is impossible without a --enable-foo that exits if a feature is not found.
 
+#AWH - LLVM support disabled by default
+tcg_llvm="no"
+#AWH - VMI enabled by default
+enable_vmi="yes"
+#AWH - TCG tainting off by default
+tcg_taint="no"
+#AWH - TCG IR logging off by default
+tcg_ir_log="no"
 bluez=""
 brlapi=""
 curl=""
@@ -246,7 +254,8 @@ vnc_sasl=""
 vnc_jpeg=""
 vnc_png=""
 vnc_ws=""
-xen=""
+#AWH - XEN off by default
+xen="no"
 xen_ctrl_version=""
 xen_pci_passthrough=""
 linux_aio=""
@@ -407,11 +416,15 @@ QEMU_CFLAGS="-fno-strict-aliasing -fno-common $QEMU_CFLAGS"
 QEMU_CFLAGS="-Wall -Wundef -Wwrite-strings -Wmissing-prototypes $QEMU_CFLAGS"
 QEMU_CFLAGS="-Wstrict-prototypes -Wredundant-decls $QEMU_CFLAGS"
 QEMU_CFLAGS="-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE $QEMU_CFLAGS"
-QEMU_INCLUDES="-I. -I\$(SRC_PATH) -I\$(SRC_PATH)/include"
+# AWH - C++ specific flags
+QEMU_CPPFLAGS="-fno-strict-aliasing -Wall -Wundef -Wwrite-strings -Wredundant-decls -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_FORTIFY_SOURCE=2"
+QEMU_INCLUDES="-I. -I\$(SRC_PATH) -I\$(SRC_PATH)/include -I\$(SRC_PATH)/shared"
 if test "$debug_info" = "yes"; then
     CFLAGS="-g $CFLAGS"
     LDFLAGS="-g $LDFLAGS"
 fi
+# AWH - Adding -rdynamic to export QEMU global variables out to the plugins
+LDFLAGS="-rdynamic"
 
 # make source path absolute
 source_path=`cd "$source_path"; pwd`
@@ -1129,6 +1142,26 @@ for opt do
   ;;
   --enable-numa) numa="yes"
   ;;
+# AWH - TCG tainting
+  --enable-tcg-taint) tcg_taint="yes"
+  ;;
+  --disable-tcg-taint) tcg_taint="no"
+  ;;
+# AWH - TCG IR logging
+  --enable-tcg-ir-log) tcg_ir_log="yes"
+  ;;
+  --disable-tcg-ir-log) tcg_ir_log="no"
+  ;;
+# AWH - TCG LLVM support
+  --enable-tcg-llvm) tcg_llvm="yes"
+  ;;
+  --disable-tcg-llvm) tcg_llvm="no"
+  ;;
+# AWH - VMI support
+  --enable-vmi) enable_vmi="yes"
+  ;;
+  --disable-vmi) enable_vmi="no"
+  ;;
   *)
       echo "ERROR: unknown option $opt"
       echo "Try '$0 --help' for more information"
@@ -1207,18 +1240,23 @@ default_target_list=""
 mak_wilds=""
 
 if [ "$softmmu" = "yes" ]; then
-    mak_wilds="${mak_wilds} $source_path/default-configs/*-softmmu.mak"
+#    mak_wilds="${mak_wilds} $source_path/default-configs/*-softmmu.mak"
+        default_target_list="\
+	i386-softmmu \
+	arm-softmmu \
+	mips-softmmu \
+	"
 fi
-if [ "$linux_user" = "yes" ]; then
-    mak_wilds="${mak_wilds} $source_path/default-configs/*-linux-user.mak"
-fi
-if [ "$bsd_user" = "yes" ]; then
-    mak_wilds="${mak_wilds} $source_path/default-configs/*-bsd-user.mak"
-fi
+#if [ "$linux_user" = "yes" ]; then
+    #mak_wilds="${mak_wilds} $source_path/default-configs/*-linux-user.mak"
+#fi
+#if [ "$bsd_user" = "yes" ]; then
+#    mak_wilds="${mak_wilds} $source_path/default-configs/*-bsd-user.mak"
+#fi
 
-for config in $mak_wilds; do
-    default_target_list="${default_target_list} $(basename "$config" .mak)"
-done
+#for config in $mak_wilds; do
+#    default_target_list="${default_target_list} $(basename "$config" .mak)"
+#done
 
 if test x"$show_help" = x"yes" ; then
 cat << EOF
@@ -1400,6 +1438,18 @@ Advanced options (experts only):
   --enable-quorum          enable quorum block filter support
   --disable-numa           disable libnuma support
   --enable-numa            enable libnuma support
+# AWH - TCG tainting
+  --disable-tcg-taint      disable taint IR generation via TCG (default)"
+  --enable-tcg-taint       enable taint IR generation via TCG"
+# AWH - TCG IR logging
+  --disable-tcg-ir-log     disable TCG IR logging buffers (default)"
+  --enable-tcg-ir-log      enable TCG IR logging buffers"
+# AWH - TCG-to-LLVM translation
+  --disable-tcg-llvm       disable TCG-to-LLVM translation (default)"
+  --enable-tcg-llvm        enable TCG-to-LLVM translation"
+# AWH - VMI enable
+  --disable-vmi            disable VMI support"
+  --enable-vmi             enable VMI support (default)"
 
 NOTE: The object files are built at the place where configure is launched
 EOF
@@ -1478,6 +1528,9 @@ gcc_flags="-Wmissing-include-dirs -Wempty-body -Wnested-externs $gcc_flags"
 gcc_flags="-Wendif-labels $gcc_flags"
 gcc_flags="-Wno-initializer-overrides $gcc_flags"
 gcc_flags="-Wno-string-plus-int $gcc_flags"
+# AWH - CPP flags
+cpp_flags="-Wtype-limits -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wmissing-include-dirs -Wempty-body -fstack-protector-all -Wendif-labels"
+
 # Note that we do not add -Werror to gcc_flags here, because that would
 # enable it for all configure tests. If a configure test failed due
 # to -Werror this would just silently disable some features,
@@ -1485,6 +1538,14 @@ gcc_flags="-Wno-string-plus-int $gcc_flags"
 cat > $TMPC << EOF
 int main(void) { return 0; }
 EOF
+
+# AWH - CPP flags
+for flag in $cpp_flags; do
+	if compile_prog "$flag -Werror" "" ; then
+		QEMU_CPPFLAGS="$QEMU_CPPFLAGS $flag"
+	fi
+done
+
 for flag in $gcc_flags; do
     # Use the positive sense of the flag when testing for -Wno-wombat
     # support (gcc will happily accept the -Wno- form of unknown
@@ -1837,6 +1898,8 @@ if test "$seccomp" != "no" ; then
 fi
 ##########################################
 # xen probe
+#AWH - Force XEN off (no support)
+xen="no"
 
 if test "$xen" != "no" ; then
   xen_libs="-lxenstore -lxenctrl -lxenguest"
@@ -3591,6 +3654,19 @@ if test "$darwin" != "yes" -a "$mingw32" != "yes" -a "$solaris" != yes -a \
     libs_softmmu="-lutil $libs_softmmu"
 fi
 
+# AWH - Check if we need libbfd
+#cat > $TMPC <<EOF
+##include <bfd.h>
+#int main(void) { bfd_error my_error; my_error = bfd_get_error(); }
+#EOF
+
+#if compile_prog "" "" ; then
+#  :
+#elif compile_prog "" "-lbfd" ; then
+#  LIBS="-lbfd $LIBS"
+#fi
+LIBS="-lbfd $LIBS"
+
 ##########################################
 # spice probe
 if test "$spice" != "no" ; then
@@ -4066,6 +4142,7 @@ fi
 # End of CC checks
 # After here, no more $cc or $ld runs
 
+# AWH - Comment out for debugging purposes
 if test "$gcov" = "yes" ; then
   CFLAGS="-fprofile-arcs -ftest-coverage -g $CFLAGS"
   LDFLAGS="-fprofile-arcs -ftest-coverage $LDFLAGS"
@@ -4240,6 +4317,7 @@ echo "Objective-C compiler $objcc"
 echo "ARFLAGS           $ARFLAGS"
 echo "CFLAGS            $CFLAGS"
 echo "QEMU_CFLAGS       $QEMU_CFLAGS"
+echo "QEMU_CPPFLAGS     $QEMU_CPPFLAGS"
 echo "LDFLAGS           $LDFLAGS"
 echo "make              $make"
 echo "install           $install"
@@ -4341,6 +4419,14 @@ echo "Quorum            $quorum"
 echo "lzo support       $lzo"
 echo "snappy support    $snappy"
 echo "NUMA host support $numa"
+# AWH - TCG tainting
+echo "enable TCG taint  $tcg_taint"
+# AWH - TCG IR logging
+echo "enable IR logging $tcg_ir_log"
+#AWH - TCG LLVM
+echo "enable TCG LLVM   $tcg_llvm"
+# AWH - VMI
+echo "enable VMI        $enable_vmi"
 
 if test "$sdl_too_old" = "yes"; then
 echo "-> Your SDL version is too old - please upgrade to have SDL support"
@@ -4374,6 +4460,22 @@ echo "extra_ldflags=$EXTRA_LDFLAGS" >> $config_host_mak
 echo "qemu_localedir=$qemu_localedir" >> $config_host_mak
 echo "libs_softmmu=$libs_softmmu" >> $config_host_mak
 
+#AWH - VMI enable
+if test "$enable_vmi" = "yes" ; then
+echo "CONFIG_VMI_ENABLE=y" >> $config_host_mak
+fi
+#AWH - TCG LLVM
+if test "$tcg_llvm" = "yes" ; then
+echo "CONFIG_TCG_LLVM=y" >> $config_host_mak
+fi
+#AWH - TCG tainting
+if test "$tcg_taint" = "yes" ; then
+echo "CONFIG_TCG_TAINT=y" >> $config_host_mak
+fi
+#AWH - TCG IR logging
+if test "$tcg_ir_log" = "yes" ; then
+echo "CONFIG_TCG_IR_LOG=y" >> $config_host_mak
+fi
 echo "ARCH=$ARCH" >> $config_host_mak
 
 if test "$debug_tcg" = "yes" ; then
@@ -4906,6 +5008,7 @@ echo "LIBTOOL=$libtool" >> $config_host_mak
 echo "CFLAGS=$CFLAGS" >> $config_host_mak
 echo "CFLAGS_NOPIE=$CFLAGS_NOPIE" >> $config_host_mak
 echo "QEMU_CFLAGS=$QEMU_CFLAGS" >> $config_host_mak
+echo "QEMU_CPPFLAGS=$QEMU_CPPFLAGS" >> $config_host_mak
 echo "QEMU_INCLUDES=$QEMU_INCLUDES" >> $config_host_mak
 if test "$sparse" = "yes" ; then
   echo "CC           := REAL_CC=\"\$(CC)\" cgcc"       >> $config_host_mak
@@ -4921,7 +5024,7 @@ fi
 echo "LDFLAGS=$LDFLAGS" >> $config_host_mak
 echo "LDFLAGS_NOPIE=$LDFLAGS_NOPIE" >> $config_host_mak
 echo "LIBTOOLFLAGS=$LIBTOOLFLAGS" >> $config_host_mak
-echo "LIBS+=$LIBS" >> $config_host_mak
+echo "LIBS+=$LIBS -lstdc++" >> $config_host_mak
 echo "LIBS_TOOLS+=$libs_tools" >> $config_host_mak
 echo "EXESUF=$EXESUF" >> $config_host_mak
 echo "DSOSUF=$DSOSUF" >> $config_host_mak
@@ -5005,6 +5108,13 @@ esac
 
 mkdir -p $target_dir
 echo "# Automatically generated by configure - do not modify" > $config_target_mak
+#AWH
+mkdir -p $target_dir/shared
+mkdir -p $target_dir/shared/hooks
+mkdir -p $target_dir/shared/utils
+mkdir -p $target_dir/shared/tainting
+mkdir -p $target_dir/shared/sqlite3
+
 
 bflt="no"
 interp_prefix1=`echo "$interp_prefix" | sed "s/%M/$target_name/g"`
@@ -5317,6 +5427,7 @@ if test "$target_linux_user" = "yes" -o "$target_bsd_user" = "yes" ; then
   ldflags="$ldflags $textseg_ldflags"
 fi
 
+# AWH - Add in C++ personality lib to get C++ built-in STL
 echo "LDFLAGS+=$ldflags" >> $config_target_mak
 echo "QEMU_CFLAGS+=$cflags" >> $config_target_mak
 
@@ -5344,6 +5455,10 @@ DIRS="$DIRS fsdev"
 DIRS="$DIRS pc-bios/optionrom pc-bios/spapr-rtas pc-bios/s390-ccw"
 DIRS="$DIRS roms/seabios roms/vgabios"
 DIRS="$DIRS qapi-generated"
+# AWH
+DIRS="$DIRS shared"
+DIRS="$DIRS shared/utils"
+
 FILES="Makefile tests/tcg/Makefile qdict-test-data.txt"
 FILES="$FILES tests/tcg/cris/Makefile tests/tcg/cris/.gdbinit"
 FILES="$FILES tests/tcg/lm32/Makefile tests/tcg/xtensa/Makefile po/Makefile"

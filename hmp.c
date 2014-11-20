@@ -1758,3 +1758,36 @@ void hmp_info_memory_devices(Monitor *mon, const QDict *qdict)
 
     qapi_free_MemoryDeviceInfoList(info_list);
 }
+
+#if 0
+void hmp_taint_debug(Monitor *mon, const QDict *qdict)
+{
+	Error *errp = NULL;
+	monitor_printf(mon, "taint-debug called!\n");
+	debug_taint_set_flag(1);
+	if (error_is_set(&errp))
+	{
+		monitor_printf(mon, "%s\n", error_get_pretty(errp));
+		error_free(errp);
+		return;
+	}
+	return;
+
+}
+
+void hmp_taint(Monitor *mon, const QDict *qdict)
+{
+	int addr = qdict_get_int(qdict, "addr");
+	Error *errp = NULL;
+	monitor_printf(mon, "taint called!\n");
+	taint_addr(addr);
+	if (error_is_set(&errp))
+	{
+		monitor_printf(mon, "%s\n", error_get_pretty(errp));
+		error_free(errp);
+		return;
+	}
+	return;
+}
+#endif
+

@@ -53,6 +53,9 @@
 #define RES_TYPE uint32_t
 #endif
 
+ /* AWH - Assume that we are adding a memory callback */
+#define ADD_MEM_CB 1
+
 #ifdef SOFTMMU_CODE_ACCESS
 #define ADDR_READ addr_code
 #define MMUSUFFIX _cmmu
@@ -60,6 +63,8 @@
 #define ADDR_READ addr_read
 #define MMUSUFFIX _mmu
 #endif
+/* AWH - No memory callback for this one */
+#undef ADD_MEM_CB 
 
 /* generic load/store macros */
 

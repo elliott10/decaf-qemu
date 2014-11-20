@@ -18,6 +18,9 @@
 
 #include "qemu/osdep.h"
 #include "qemu/bitops.h"
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 /*
  * The available bitmap operations and their rough meaning in the
@@ -242,4 +245,7 @@ static inline unsigned long *bitmap_zero_extend(unsigned long *old,
     return new;
 }
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 #endif /* BITMAP_H */

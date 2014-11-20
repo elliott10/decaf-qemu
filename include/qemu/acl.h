@@ -26,6 +26,9 @@
 #define __QEMU_ACL_H__
 
 #include "qemu/queue.h"
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 typedef struct qemu_acl_entry qemu_acl_entry;
 typedef struct qemu_acl qemu_acl;
@@ -63,6 +66,9 @@ int qemu_acl_insert(qemu_acl *acl,
 int qemu_acl_remove(qemu_acl *acl,
 		    const char *match);
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 #endif /* __QEMU_ACL_H__ */
 
 /*

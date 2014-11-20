@@ -25,6 +25,8 @@
 #include "sysemu/qtest.h"
 #include "qemu/timer.h"
 
+#include "DECAF_main.h"
+
 /* -icount align implementation. */
 
 typedef struct SyncClocks {
@@ -351,6 +353,8 @@ int cpu_exec(CPUArchState *env)
     if (unlikely(exit_request)) {
         cpu->exit_request = 1;
     }
+    // AWH - TEMU updating
+    //DECAF_update_cpustate();
 
     cc->cpu_exec_enter(cpu);
     cpu->exception_index = -1;

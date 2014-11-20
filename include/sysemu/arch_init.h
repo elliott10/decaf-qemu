@@ -3,6 +3,9 @@
 
 #include "qmp-commands.h"
 #include "qemu/option.h"
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 enum {
     QEMU_ARCH_ALL = -1,
@@ -38,4 +41,7 @@ int xen_available(void);
 
 CpuDefinitionInfoList *arch_query_cpu_definitions(Error **errp);
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 #endif

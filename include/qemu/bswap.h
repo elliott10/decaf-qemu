@@ -350,12 +350,12 @@ static inline void stfq_le_p(void *ptr, float64 v)
 
 static inline int lduw_be_p(const void *ptr)
 {
-    return (uint16_t)be_bswap(lduw_he_p(ptr), 16);
+    return (uint16_t)be_bswap(lduw_he_p((const uint8_t *)ptr), 16);
 }
 
 static inline int ldsw_be_p(const void *ptr)
 {
-    return (int16_t)be_bswap(lduw_he_p(ptr), 16);
+    return (int16_t)be_bswap(lduw_he_p((const uint8_t *)ptr), 16);
 }
 
 static inline int ldl_be_p(const void *ptr)

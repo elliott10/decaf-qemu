@@ -117,4 +117,7 @@ void host_net_remove_completion(ReadLineState *rs, int nb_args,
 void delvm_completion(ReadLineState *rs, int nb_args, const char *str);
 void loadvm_completion(ReadLineState *rs, int nb_args, const char *str);
 
+void hmp_taint_debug(Monitor *mon, const QDict *qdict);
+void hmp_taint(Monitor *mon, const QDict *qdict);
+
 #endif

@@ -8,6 +8,9 @@
 #include "block/accounting.h"
 #include "qapi/qmp/qobject.h"
 #include "qapi-types.h"
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 /* block.c */
 typedef struct BlockDriver BlockDriver;
@@ -544,5 +547,9 @@ void bdrv_io_unplug(BlockDriverState *bs);
 void bdrv_flush_io_queue(BlockDriverState *bs);
 
 BlockAcctStats *bdrv_get_stats(BlockDriverState *bs);
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 #endif

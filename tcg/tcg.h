@@ -527,7 +527,8 @@ struct TCGContext {
        here, because there's too much arithmetic throughout that relies
        on addition and subtraction working on bytes.  Rely on the GCC
        extension that allows arithmetic on void*.  */
-    int code_gen_max_blocks;
+    //decaf
+    uint32_t code_gen_max_blocks;
     void *code_gen_prologue;
     void *code_gen_buffer;
     size_t code_gen_buffer_size;

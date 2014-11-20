@@ -24,6 +24,8 @@
 #include "exec/memory.h"
 #include "qemu/thread.h"
 #include "qom/cpu.h"
+//#include "taintcheck.h" /* AWH */
+//#include "taintcheck_opt.h" /* AWH */
 
 /* some important defines:
  *

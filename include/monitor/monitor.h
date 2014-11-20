@@ -7,6 +7,10 @@
 #include "block/block.h"
 #include "qemu/readline.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 extern Monitor *cur_mon;
 extern Monitor *default_mon;
 
@@ -67,4 +71,25 @@ int monitor_fdset_dup_fd_add(int64_t fdset_id, int dup_fd);
 void monitor_fdset_dup_fd_remove(int dup_fd);
 int monitor_fdset_dup_fd_find(int dup_fd);
 
+// AWH - moved here from monitor.c so that the plugins can use it
+typedef struct mon_cmd_t {
+	const char *name;
+	const char *args_type;
+	const char *params;
+	const char *help;
+	void (*user_print)(Monitor *mon, const QObject *data);
+	union {
+		void (*info)(Monitor *mon);
+		void (*cmd)(Monitor *mon, const QDict *qdict);
+		int  (*cmd_new)(Monitor *mon, const QDict *params, QObject **ret_data);
+		int  (*cmd_async)(Monitor *mon, const QDict *params,
+				MonitorCompletion *cb, void *opaque);
+	} mhandler;
+	bool qapi;
+	int flags;
+} mon_cmd_t;
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 #endif /* !MONITOR_H */

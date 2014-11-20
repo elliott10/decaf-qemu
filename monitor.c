@@ -79,6 +79,9 @@
 #endif
 #include "hw/lm32/lm32_pic.h"
 
+#include "shared/DECAF_main.h"
+#include "shared/DECAF_main_internal.h"
+
 //#define DEBUG
 //#define DEBUG_COMPLETION
 
@@ -122,6 +125,7 @@ struct MonitorCompletionData {
     void (*user_print)(Monitor *mon, const QObject *data);
 };
 
+#if 0 // AWH - moved out to monitor.h so the plugins can use it
 typedef struct mon_cmd_t {
     const char *name;
     const char *args_type;
@@ -142,6 +146,7 @@ typedef struct mon_cmd_t {
     struct mon_cmd_t *sub_table;
     void (*command_completion)(ReadLineState *rs, int nb_args, const char *str);
 } mon_cmd_t;
+#endif // AWH
 
 /* file descriptors passed via SCM_RIGHTS */
 typedef struct mon_fd_t mon_fd_t;
@@ -854,6 +859,12 @@ static void help_cmd(Monitor *mon, const char *name)
 
     /* 1. parse user input */
     if (name) {
+	    if (DECAF_mon_cmds != NULL)
+	    {
+		    help_cmd_dump(mon, DECAF_mon_cmds, "", name);
+	    }
+	    if (decaf_plugin && decaf_plugin->mon_cmds)
+		    help_cmd_dump(mon, decaf_plugin->mon_cmds, "", name);
         /* special case for log, directly dump and return */
         if (!strcmp(name, "log")) {
             const QEMULogItem *item;
@@ -872,6 +883,12 @@ static void help_cmd(Monitor *mon, const char *name)
 
     /* 2. dump the contents according to parsed args */
     help_cmd_dump(mon, mon->cmd_table, args, nb_args, 0);
+    if (DECAF_mon_cmds != NULL)
+    {
+	    help_cmd_dump(mon, DECAF_mon_cmds, "", name);
+    }
+    if (decaf_plugin && decaf_plugin->mon_cmds)
+	    help_cmd_dump(mon, decaf_plugin->mon_cmds, "", name);
 
     free_cmdline_args(args, nb_args);
 }
@@ -3666,6 +3683,46 @@ static const mon_cmd_t *search_dispatch_table(const mon_cmd_t *disp_table,
     return NULL;
 }
 
+//decaf
+static const mon_cmd_t *monitor_find_command(const char *cmdname)
+{
+	const mon_cmd_t *cmd;
+	// AWH - search the standard monitor cmds first
+	cmd = search_dispatch_table(mon_cmds, cmdname);
+	if (cmd) return cmd;
+
+	//LOK: Now search the DECAF's default commands
+	if (DECAF_mon_cmds != NULL)
+	{
+		cmd = search_dispatch_table(DECAF_mon_cmds, cmdname);
+		if (cmd != NULL)
+		{
+			return cmd;
+		}
+	}
+	if (DECAF_info_cmds != NULL)
+	{
+		cmd = search_dispatch_table(DECAF_info_cmds, cmdname);
+		if (cmd != NULL)
+		{
+			return cmd;
+		}
+	}
+	// AWH - if you can't find it, try to search the plugin term cmds
+	if (decaf_plugin) {
+		if (decaf_plugin->mon_cmds) {
+			cmd = search_dispatch_table(decaf_plugin->mon_cmds, cmdname);
+			if (cmd) return cmd;
+		}
+		if (decaf_plugin->info_cmds) {
+			cmd = search_dispatch_table(decaf_plugin->info_cmds, cmdname);
+			if (cmd) return cmd;
+		} 
+	}
+
+	return NULL; // No plugin, no cmd found
+}
+
 static const mon_cmd_t *qmp_find_cmd(const char *cmdname)
 {
     return search_dispatch_table(qmp_cmds, cmdname);
@@ -4442,6 +4499,20 @@ void object_del_completion(ReadLineState *rs, int nb_args, const char *str)
     qapi_free_ObjectPropertyInfoList(start);
 }
 
+// AWH - Version that is exported to plugins
+static void do_sendkey(Monitor *mon, const QDict *qdict);
+void do_send_key(const char *string)
+{
+	QDict *qdict = qdict_new();
+	qdict_put(qdict, "string", qstring_from_str(string));
+//	do_sendkey(default_mon, qdict);
+	hmp_send_key(default_mon, qdict);
+	qdict_del(qdict, "string");
+	//LOK: Changed to QDECREF according to its definition in qobject.h
+	QDECREF(qdict);
+	//qobject_decref(qdict);
+}
+
 void sendkey_completion(ReadLineState *rs, int nb_args, const char *str)
 {
     int i;
@@ -4667,15 +4738,51 @@ static void monitor_find_completion_by_table(Monitor *mon,
             cmdname = args[0];
         readline_set_completion_index(mon->rs, strlen(cmdname));
         for (cmd = cmd_table; cmd->name != NULL; cmd++) {
-            cmd_completion(mon, cmdname, cmd->name);
-        }
+		cmd_completion(mon, cmdname, cmd->name);
+	}
+	//LOK:
+	if (DECAF_mon_cmds != NULL)
+	{
+		for (cmd = DECAF_mon_cmds; cmd->name != NULL; cmd++)
+		{
+			cmd_completion(cmdname, cmd->name);
+		}
+	}
+	// AWH - plugin cmds
+	if (decaf_plugin && decaf_plugin->mon_cmds)
+		for (cmd = decaf_plugin->mon_cmds; cmd->name != NULL; cmd++)
+			cmd_completion(cmdname, cmd->name);
+	//if (temu_plugin && temu_plugin->info_cmds)
+	//    for (cmd = temu_plugin->info_cmds; cmd->name != NULL; cmd++)
+	//        cmd_completion(cmdname, cmd->name);
+
     } else {
-        /* find the command */
-        for (cmd = cmd_table; cmd->name != NULL; cmd++) {
-            if (compare_cmd(args[0], cmd->name)) {
-                break;
-            }
-        }
+	    /* find the command */
+	    for (cmd = cmd_table; cmd->name != NULL; cmd++) {
+		    if (compare_cmd(args[0], cmd->name)) {
+			    break;
+		    }
+	    }
+	    if ((cmd->name == NULL) && (DECAF_mon_cmds != NULL))
+	    {
+		    for (cmd = DECAF_mon_cmds; cmd->name != NULL; cmd++)
+		    {
+			    if (compare_cmd(args[0], cmd->name))
+			    {
+				    break;
+			    }
+		    }
+	    }
+
+	    // AWH - plugin cmds
+	    if (!cmd->name && decaf_plugin && decaf_plugin->mon_cmds)
+		    for (cmd = decaf_plugin->mon_cmds; cmd->name != NULL; cmd++)
+			    if (compare_cmd(args[0], cmd->name)) break;
+	    //if (!cmd->name && temu_plugin && temu_plugin->info_cmds) {
+	    //    for (cmd = temu_plugin->term_cmds; cmd->name != NULL; cmd++) 
+	    //        if (compare_cmd(args[0], cmd->name)) break;
+	    //}
+
         if (!cmd->name) {
             return;
         }
@@ -4720,10 +4827,38 @@ static void monitor_find_completion_by_table(Monitor *mon,
             break;
         case 's':
         case 'S':
-            if (!strcmp(cmd->name, "help|?")) {
+	    if (!strcmp(cmd->name, "info"))
+	    {
+		    //LOK:
+		    if (DECAF_info_cmds != NULL)
+		    {
+			    for (cmd = DECAF_info_cmds; cmd->name != NULL; cmd++)
+			    {
+				    cmd_completion(str, cmd->name);
+			    }
+		    }
+
+		    // AWH - plugin info cmds
+		    if (decaf_plugin && decaf_plugin->info_cmds)
+			    for (cmd = decaf_plugin->info_cmds; cmd->name != NULL; cmd++)
+				    cmd_completion(str, cmd->name);
+	    }
+            else if (!strcmp(cmd->name, "help|?")) {
                 monitor_find_completion_by_table(mon, cmd_table,
                                                  &args[1], nb_args - 1);
-            }
+		//LOK:
+		if (DECAF_mon_cmds != NULL)
+		{
+			for (cmd = DECAF_mon_cmds; cmd->name != NULL; cmd++)
+			{
+				cmd_completion(str, cmd->name);
+			}
+		}
+		// AWH - plugin cmds
+		if (decaf_plugin && decaf_plugin->mon_cmds)
+			for (cmd = decaf_plugin->mon_cmds; cmd->name != NULL; cmd++)
+				cmd_completion(str, cmd->name);
+	    }
             break;
         default:
             break;

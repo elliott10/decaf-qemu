@@ -16,6 +16,9 @@
 #include <assert.h>
 
 #include "host-utils.h"
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 #define BITS_PER_BYTE           CHAR_BIT
 #define BITS_PER_LONG           (sizeof (unsigned long) * BITS_PER_BYTE)
@@ -415,4 +418,7 @@ static inline uint64_t deposit64(uint64_t value, int start, int length,
     return (value & ~mask) | ((fieldval << start) & mask);
 }
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 #endif
