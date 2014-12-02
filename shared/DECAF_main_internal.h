@@ -16,7 +16,8 @@ http://code.google.com/p/decaf-platform/
 #ifndef _DECAF_MAIN_INTERNAL_H_
 #define _DECAF_MAIN_INTERNAL_H_
 
-#include "monitor.h"
+//#include "monitor.h"
+#include "monitor/monitor.h"
 
 //LOK: Separate data structure for DECAF commands and plugin commands
 extern mon_cmd_t DECAF_mon_cmds[];

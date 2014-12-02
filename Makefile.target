@@ -11,7 +11,7 @@ QEMU_CFLAGS += -I../linux-headers
 QEMU_CPPFLAGS += -I../linux-headers
 endif
 QEMU_CFLAGS += -I.. -I$(SRC_PATH)/target-$(TARGET_BASE_ARCH) -DNEED_CPU_H
-QEMU_CPPFLAGS += -I.. -I$(TARGET_PATH) -DNEED_CPU_H
+QEMU_CPPFLAGS += -I.. -I$(SRC_PATH)/target-$(TARGET_BASE_ARCH) -DNEED_CPU_H
 
 QEMU_CFLAGS+=-I$(SRC_PATH)/include
 
@@ -91,25 +91,23 @@ obj-$(CONFIG_TCG_INTERPRETER) += disas/tci.o
 obj-y += fpu/softfloat.o
 obj-y += target-$(TARGET_BASE_ARCH)/
 obj-y += disas.o
-obj-$(call notempty,$(TARGET_XML_FILES)) += gdbstub-xml.o
-obj-$(call lnot,$(CONFIG_KVM)) += kvm-stub.o
-
-# AWH decaf
+# AWH
 #libobj-y += libdecaf.a
 obj-y += $(LIBDECAF)
 #libobj-y += DECAF_main_x86.o
 obj-y += DECAF_target.o
 LIBS+=-ldl
 
-# HELPER_CFLAGS is used for all the code compiled with static register
-# variables
-op_helper.o ldst_helper.o user-exec.o shared/DECAF_callback.o: QEMU_CFLAGS += $(HELPER_CFLAGS)
+obj-$(call notempty,$(TARGET_XML_FILES)) += gdbstub-xml.o
+obj-$(call lnot,$(CONFIG_KVM)) += kvm-stub.o
 
 obj-$(CONFIG_LIBDECNUMBER) += libdecnumber/decContext.o
 obj-$(CONFIG_LIBDECNUMBER) += libdecnumber/decNumber.o
 obj-$(CONFIG_LIBDECNUMBER) += libdecnumber/dpd/decimal32.o
 obj-$(CONFIG_LIBDECNUMBER) += libdecnumber/dpd/decimal64.o
 obj-$(CONFIG_LIBDECNUMBER) += libdecnumber/dpd/decimal128.o
+
+shared/DECAF_callback.o: QEMU_CFLAGS +=
 
 #########################################################
 # Linux user emulator target
@@ -148,10 +146,7 @@ obj-$(CONFIG_KVM) += kvm-all.o
 obj-y += memory.o savevm.o cputlb.o
 obj-y += memory_mapping.o
 obj-y += dump.o
-#LIBS+=$(libs_softmmu)
-#decaf
 LIBS+=$(libs_softmmu) -lrt
-#LIBS+=-lz -lrt
 
 QEMU_CPPFLAGS += $(GLIB_CFLAGS)
 
@@ -220,7 +215,7 @@ qmp-commands-old.h: $(SRC_PATH)/qmp-commands.hx
 clean:
 	rm -f *.a *~ $(PROGS)
 	rm -f $(shell find . -name '*.[od]')
-	rm -f shared/*.o shared/hooks/*.o shared/utils/*.o shared/tainting/*.o #decaf
+	rm -f shared/*.o shared/hooks/*.o shared/utils/*.o shared/tainting/*.o
 	rm -f hmp-commands.h qmp-commands-old.h gdbstub-xml.c
 ifdef CONFIG_TRACE_SYSTEMTAP
 	rm -f *.stp

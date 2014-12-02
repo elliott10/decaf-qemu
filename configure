@@ -418,13 +418,16 @@ QEMU_CFLAGS="-Wstrict-prototypes -Wredundant-decls $QEMU_CFLAGS"
 QEMU_CFLAGS="-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE $QEMU_CFLAGS"
 # AWH - C++ specific flags
 QEMU_CPPFLAGS="-fno-strict-aliasing -Wall -Wundef -Wwrite-strings -Wredundant-decls -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_FORTIFY_SOURCE=2"
-QEMU_INCLUDES="-I. -I\$(SRC_PATH) -I\$(SRC_PATH)/include -I\$(SRC_PATH)/shared"
+
+QEMU_INCLUDES="-I. -I\$(SRC_PATH) -I\$(SRC_PATH)/fpu -I\$(SRC_PATH)/shared -I\$(SRC_PATH)/include"
+# AWH - Adding -rdynamic to export QEMU global variables out to the plugins
+LDFLAGS="-rdynamic"
 if test "$debug_info" = "yes"; then
     CFLAGS="-g $CFLAGS"
     LDFLAGS="-g $LDFLAGS"
+    # AWH - Adding -rdynamic to export QEMU global variables out to the plugins
+    LDFLAGS="-rdynamic"
 fi
-# AWH - Adding -rdynamic to export QEMU global variables out to the plugins
-LDFLAGS="-rdynamic"
 
 # make source path absolute
 source_path=`cd "$source_path"; pwd`
@@ -1162,6 +1165,7 @@ for opt do
   ;;
   --disable-vmi) enable_vmi="no"
   ;;
+
   *)
       echo "ERROR: unknown option $opt"
       echo "Try '$0 --help' for more information"
@@ -1240,23 +1244,19 @@ default_target_list=""
 mak_wilds=""
 
 if [ "$softmmu" = "yes" ]; then
-#    mak_wilds="${mak_wilds} $source_path/default-configs/*-softmmu.mak"
-        default_target_list="\
-	i386-softmmu \
-	arm-softmmu \
-	mips-softmmu \
-	"
+    #mak_wilds="${mak_wilds} $source_path/default-configs/*-softmmu.mak"
+    mak_wilds="${mak_wilds} $source_path/default-configs/i386-softmmu.mak $source_path/default-configs/arm-softmmu.mak $source_path/default-configs/mips-softmmu.mak"
 fi
 #if [ "$linux_user" = "yes" ]; then
-    #mak_wilds="${mak_wilds} $source_path/default-configs/*-linux-user.mak"
+#    mak_wilds="${mak_wilds} $source_path/default-configs/*-linux-user.mak"
 #fi
 #if [ "$bsd_user" = "yes" ]; then
 #    mak_wilds="${mak_wilds} $source_path/default-configs/*-bsd-user.mak"
 #fi
 
-#for config in $mak_wilds; do
-#    default_target_list="${default_target_list} $(basename "$config" .mak)"
-#done
+for config in $mak_wilds; do
+    default_target_list="${default_target_list} $(basename "$config" .mak)"
+done
 
 if test x"$show_help" = x"yes" ; then
 cat << EOF
@@ -1438,18 +1438,18 @@ Advanced options (experts only):
   --enable-quorum          enable quorum block filter support
   --disable-numa           disable libnuma support
   --enable-numa            enable libnuma support
-# AWH - TCG tainting
-  --disable-tcg-taint      disable taint IR generation via TCG (default)"
-  --enable-tcg-taint       enable taint IR generation via TCG"
-# AWH - TCG IR logging
-  --disable-tcg-ir-log     disable TCG IR logging buffers (default)"
-  --enable-tcg-ir-log      enable TCG IR logging buffers"
-# AWH - TCG-to-LLVM translation
-  --disable-tcg-llvm       disable TCG-to-LLVM translation (default)"
-  --enable-tcg-llvm        enable TCG-to-LLVM translation"
-# AWH - VMI enable
-  --disable-vmi            disable VMI support"
-  --enable-vmi             enable VMI support (default)"
+  # AWH - TCG tainting
+  --disable-tcg-taint      disable taint IR generation via TCG (default)
+  --enable-tcg-taint       enable taint IR generation via TCG
+  # AWH - TCG IR logging
+  --disable-tcg-ir-log     disable TCG IR logging buffers (default)
+  --enable-tcg-ir-log      enable TCG IR logging buffers
+  # AWH - TCG-to-LLVM translation
+  --disable-tcg-llvm       disable TCG-to-LLVM translation (default)
+  --enable-tcg-llvm        enable TCG-to-LLVM translation
+  # AWH - VMI enable
+  --disable-vmi            disable VMI support
+  --enable-vmi             enable VMI support (default)
 
 NOTE: The object files are built at the place where configure is launched
 EOF
@@ -1538,14 +1538,6 @@ cpp_flags="-Wtype-limits -Wformat-security -Wformat-y2k -Winit-self -Wignored-qu
 cat > $TMPC << EOF
 int main(void) { return 0; }
 EOF
-
-# AWH - CPP flags
-for flag in $cpp_flags; do
-	if compile_prog "$flag -Werror" "" ; then
-		QEMU_CPPFLAGS="$QEMU_CPPFLAGS $flag"
-	fi
-done
-
 for flag in $gcc_flags; do
     # Use the positive sense of the flag when testing for -Wno-wombat
     # support (gcc will happily accept the -Wno- form of unknown
@@ -1555,6 +1547,14 @@ for flag in $gcc_flags; do
 	QEMU_CFLAGS="$QEMU_CFLAGS $flag"
     fi
 done
+
+# AWH - CPP flags
+for flag in $cpp_flags; do
+	if compile_prog "$flag -Werror" "" ; then
+		QEMU_CPPFLAGS="$QEMU_CPPFLAGS $flag"
+	fi
+done
+
 
 if test "$stack_protector" != "no"; then
   gcc_flags="-fstack-protector-strong -fstack-protector-all"
@@ -4142,10 +4142,10 @@ fi
 # End of CC checks
 # After here, no more $cc or $ld runs
 
-# AWH - Comment out for debugging purposes
 if test "$gcov" = "yes" ; then
   CFLAGS="-fprofile-arcs -ftest-coverage -g $CFLAGS"
   LDFLAGS="-fprofile-arcs -ftest-coverage $LDFLAGS"
+# AWH - Comment out for debugging purposes
 elif test "$debug" = "no" ; then
   CFLAGS="-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS"
 fi
@@ -4459,6 +4459,7 @@ echo "extra_cflags=$EXTRA_CFLAGS" >> $config_host_mak
 echo "extra_ldflags=$EXTRA_LDFLAGS" >> $config_host_mak
 echo "qemu_localedir=$qemu_localedir" >> $config_host_mak
 echo "libs_softmmu=$libs_softmmu" >> $config_host_mak
+
 
 #AWH - VMI enable
 if test "$enable_vmi" = "yes" ; then
@@ -5107,7 +5108,7 @@ case "$target" in
 esac
 
 mkdir -p $target_dir
-echo "# Automatically generated by configure - do not modify" > $config_target_mak
+
 #AWH
 mkdir -p $target_dir/shared
 mkdir -p $target_dir/shared/hooks
@@ -5115,6 +5116,7 @@ mkdir -p $target_dir/shared/utils
 mkdir -p $target_dir/shared/tainting
 mkdir -p $target_dir/shared/sqlite3
 
+echo "# Automatically generated by configure - do not modify" > $config_target_mak
 
 bflt="no"
 interp_prefix1=`echo "$interp_prefix" | sed "s/%M/$target_name/g"`
