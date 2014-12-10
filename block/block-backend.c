@@ -18,6 +18,8 @@
 /* Number of coroutines to reserve per attached device model */
 #define COROUTINE_POOL_RESERVATION 64
 
+//xly for decaf
+#if 0
 struct BlockBackend {
     char *name;
     int refcnt;
@@ -30,6 +32,7 @@ struct BlockBackend {
     const BlockDevOps *dev_ops;
     void *dev_opaque;
 };
+#endif
 
 static void drive_info_del(DriveInfo *dinfo);
 

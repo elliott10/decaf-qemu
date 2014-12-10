@@ -60,6 +60,19 @@ typedef struct BlockDevOps {
     void (*resize_cb)(void *opaque);
 } BlockDevOps;
 
+struct BlockBackend {
+    char *name;
+    int refcnt;
+    BlockDriverState *bs;
+    DriveInfo *legacy_dinfo;    /* null unless created by drive_new() */
+    QTAILQ_ENTRY(BlockBackend) link; /* for blk_backends */
+
+    void *dev;                  /* attached device model, if any */
+    /* TODO change to DeviceState when all users are qdevified */
+    const BlockDevOps *dev_ops;
+    void *dev_opaque;
+};
+
 BlockBackend *blk_new(const char *name, Error **errp);
 BlockBackend *blk_new_with_bs(const char *name, Error **errp);
 void blk_ref(BlockBackend *blk);

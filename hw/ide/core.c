@@ -2014,7 +2014,7 @@ void ide_data_writew(void *opaque, uint32_t addr, uint32_t val)
     }
 
 #ifdef CONFIG_TCG_TAINT
-    taintcheck_chk_hdout(2, ide_get_sector(s), s->data_ptr-s->io_buffer, s->bs);
+    taintcheck_chk_hdout(2, ide_get_sector(s), s->data_ptr-s->io_buffer, s->blk->bs);
 #endif /* CONFIG_TCG_TAINT */
     p = s->data_ptr;
     *(uint16_t *)p = le16_to_cpu(val);
@@ -2038,7 +2038,7 @@ uint32_t ide_data_readw(void *opaque, uint32_t addr)
     }
 
 #ifdef CONFIG_TCG_TAINT
-    taintcheck_chk_hdin(2, ide_get_sector(s), s->data_ptr-s->io_buffer, s->bs);
+    taintcheck_chk_hdin(2, ide_get_sector(s), s->data_ptr-s->io_buffer, s->blk->bs);
 #endif /* CONFIG_TCG_TAINT */
     p = s->data_ptr;
     ret = cpu_to_le16(*(uint16_t *)p);
@@ -2062,7 +2062,7 @@ void ide_data_writel(void *opaque, uint32_t addr, uint32_t val)
     }
 
 #ifdef CONFIG_TCG_TAINT
-    taintcheck_chk_hdout(4, ide_get_sector(s), s->data_ptr-s->io_buffer, s->bs);
+    taintcheck_chk_hdout(4, ide_get_sector(s), s->data_ptr-s->io_buffer, s->blk->bs);
 #endif /* CONFIG_TCG_TAINT */
     p = s->data_ptr;
     *(uint32_t *)p = le32_to_cpu(val);
@@ -2086,7 +2086,7 @@ uint32_t ide_data_readl(void *opaque, uint32_t addr)
     }
 
 #ifdef CONFIG_TCG_TAINT
-    taintcheck_chk_hdin(4, ide_get_sector(s), s->data_ptr-s->io_buffer, s->bs);
+    taintcheck_chk_hdin(4, ide_get_sector(s), s->data_ptr-s->io_buffer, s->blk->bs);
 #endif /* CONFIG_TCG_TAINT */
     p = s->data_ptr;
     ret = cpu_to_le32(*(uint32_t *)p);

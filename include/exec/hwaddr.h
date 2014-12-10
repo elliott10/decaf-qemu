@@ -7,6 +7,9 @@
 /* hwaddr is the type of a physical address (its size can
    be different from 'target_ulong').  */
 
+//xly for decaf
+typedef uint64_t target_phys_addr_t;
+
 typedef uint64_t hwaddr;
 #define HWADDR_MAX UINT64_MAX
 #define TARGET_FMT_plx "%016" PRIx64

@@ -2217,6 +2217,8 @@ bool address_space_rw(AddressSpace *as, hwaddr addr, uint8_t *buf,
 void DECAF_physical_memory_rw(CPUState* env, gpa_t addr, uint8_t *buf,
 		int len, int is_write)
 {
+//xly-This function will not be used.
+#if 0
 	int l, io_index;
 	uint8_t *ptr;
 	uint32_t val;
@@ -2304,6 +2306,7 @@ void DECAF_physical_memory_rw(CPUState* env, gpa_t addr, uint8_t *buf,
 		buf += l;
 		addr += l;
 	}
+#endif
 }
 
 bool address_space_write(AddressSpace *as, hwaddr addr,

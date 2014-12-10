@@ -144,7 +144,7 @@ static int bmdma_rw_buf(IDEDMA *dma, int is_write)
 #ifdef CONFIG_TCG_TAINT
 			//fprintf(stderr, "pci_dma_write()\n");
 			if(ide_get_sector(s) >= 0)
-				taintcheck_chk_hdread(bm->cur_prd_addr, bm->cur_addr, l, ide_get_sector(s), s->bs);
+				taintcheck_chk_hdread(bm->cur_prd_addr, bm->cur_addr, l, ide_get_sector(s), s->blk->bs);
 #endif /* CONFIG_TCG_TAINT */
 		} else {
 			pci_dma_read(pci_dev, bm->cur_prd_addr,
@@ -152,7 +152,7 @@ static int bmdma_rw_buf(IDEDMA *dma, int is_write)
 #ifdef CONFIG_TCG_TAINT
 			//fprintf(stderr, "pci_dma_read()\n");
 			if(ide_get_sector(s) >= 0)
-				taintcheck_chk_hdwrite(bm->cur_prd_addr, bm->cur_addr, l, ide_get_sector(s), s->bs);
+				taintcheck_chk_hdwrite(bm->cur_prd_addr, bm->cur_addr, l, ide_get_sector(s), s->blk->bs);
 #endif /* CONFIG_TCG_TAINT */
 		}
 		bm->cur_prd_addr += l;

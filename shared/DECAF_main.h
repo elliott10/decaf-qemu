@@ -27,9 +27,11 @@ http://code.google.com/p/decaf-platform/
 #define DECAF_MAIN_H_
 
 #include "qemu-common.h"
-#include "monitor.h"
+//#include "monitor.h"
+#include "monitor/monitor.h"
 #include "DECAF_types.h"
-#include "blockdev.h"
+//#include "blockdev.h"
+#include "sysemu/blockdev.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -205,7 +207,8 @@ void DECAF_flushTranslationPage_env(CPUState* env, gva_t addr);
 static inline void DECAF_flushTranslationBlock(uint32_t addr)
 {
   CPUState* env;
-  for(env = first_cpu; env != NULL; env = env->next_cpu)
+  //for(env = first_cpu; env != NULL; env = env->next_cpu)
+  CPU_FOREACH(env)
   {
     DECAF_flushTranslationBlock_env(env, addr);
   }
@@ -215,7 +218,8 @@ static inline void DECAF_flushTranslationBlock(uint32_t addr)
 static inline void DECAF_flushTranslationPage(uint32_t addr)
 {
   CPUState* env;
-  for(env = first_cpu; env != NULL; env = env->next_cpu)
+  //for(env = first_cpu; env != NULL; env = env->next_cpu)
+  CPU_FOREACH(env)
   {
     DECAF_flushTranslationPage_env(env, addr);
   }
@@ -225,7 +229,8 @@ static inline void DECAF_flushTranslationPage(uint32_t addr)
 static inline void DECAF_flushTranslationCache(void)
 {
   CPUState* env;
-  for(env = first_cpu; env != NULL; env = env->next_cpu)
+  //for(env = first_cpu; env != NULL; env = env->next_cpu)
+  CPU_FOREACH(env)
   {
     tb_flush(env);
   }

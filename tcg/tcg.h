@@ -874,6 +874,50 @@ void helper_be_stl_mmu(CPUArchState *env, target_ulong addr, uint32_t val,
 void helper_be_stq_mmu(CPUArchState *env, target_ulong addr, uint64_t val,
                        int mmu_idx, uintptr_t retaddr);
 
+#ifdef CONFIG_TCG_TAINT
+tcg_target_ulong taint_helper_ret_ldub_mmu(CPUArchState *env, target_ulong addr,
+                                     int mmu_idx, uintptr_t retaddr);
+tcg_target_ulong taint_helper_le_lduw_mmu(CPUArchState *env, target_ulong addr,
+                                    int mmu_idx, uintptr_t retaddr);
+tcg_target_ulong taint_helper_le_ldul_mmu(CPUArchState *env, target_ulong addr,
+                                    int mmu_idx, uintptr_t retaddr);
+uint64_t taint_helper_le_ldq_mmu(CPUArchState *env, target_ulong addr,
+                           int mmu_idx, uintptr_t retaddr);
+tcg_target_ulong taint_helper_be_lduw_mmu(CPUArchState *env, target_ulong addr,
+                                    int mmu_idx, uintptr_t retaddr);
+tcg_target_ulong taint_helper_be_ldul_mmu(CPUArchState *env, target_ulong addr,
+                                    int mmu_idx, uintptr_t retaddr);
+uint64_t taint_helper_be_ldq_mmu(CPUArchState *env, target_ulong addr,
+                           int mmu_idx, uintptr_t retaddr);
+
+/* Value sign-extended to tcg register size.  */
+tcg_target_ulong taint_helper_ret_ldsb_mmu(CPUArchState *env, target_ulong addr,
+                                     int mmu_idx, uintptr_t retaddr);
+tcg_target_ulong taint_helper_le_ldsw_mmu(CPUArchState *env, target_ulong addr,
+                                    int mmu_idx, uintptr_t retaddr);
+tcg_target_ulong taint_helper_le_ldsl_mmu(CPUArchState *env, target_ulong addr,
+                                    int mmu_idx, uintptr_t retaddr);
+tcg_target_ulong taint_helper_be_ldsw_mmu(CPUArchState *env, target_ulong addr,
+                                    int mmu_idx, uintptr_t retaddr);
+tcg_target_ulong taint_helper_be_ldsl_mmu(CPUArchState *env, target_ulong addr,
+                                    int mmu_idx, uintptr_t retaddr);
+
+void taint_helper_ret_stb_mmu(CPUArchState *env, target_ulong addr, uint8_t val,
+                        int mmu_idx, uintptr_t retaddr);
+void taint_helper_le_stw_mmu(CPUArchState *env, target_ulong addr, uint16_t val,
+                       int mmu_idx, uintptr_t retaddr);
+void taint_helper_le_stl_mmu(CPUArchState *env, target_ulong addr, uint32_t val,
+                       int mmu_idx, uintptr_t retaddr);
+void taint_helper_le_stq_mmu(CPUArchState *env, target_ulong addr, uint64_t val,
+                       int mmu_idx, uintptr_t retaddr);
+void taint_helper_be_stw_mmu(CPUArchState *env, target_ulong addr, uint16_t val,
+                       int mmu_idx, uintptr_t retaddr);
+void taint_helper_be_stl_mmu(CPUArchState *env, target_ulong addr, uint32_t val,
+                       int mmu_idx, uintptr_t retaddr);
+void taint_helper_be_stq_mmu(CPUArchState *env, target_ulong addr, uint64_t val,
+                       int mmu_idx, uintptr_t retaddr);
+#endif
+
 /* Temporary aliases until backends are converted.  */
 #ifdef TARGET_WORDS_BIGENDIAN
 # define helper_ret_ldsw_mmu  helper_be_ldsw_mmu

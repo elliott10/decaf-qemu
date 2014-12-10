@@ -1,7 +1,8 @@
 #ifndef __DECAF_TAINT_MEMORY_H__
 #define __DECAF_TAINT_MEMORY_H__
 
-#include "qdict.h" // AWH
+//#include "qdict.h" // AWH
+#include "qapi/qmp/qdict.h"
 #include "DECAF_types.h"
 #ifdef __cplusplus
 extern "C" {
