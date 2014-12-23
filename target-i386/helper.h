@@ -19,7 +19,7 @@ DEF_HELPER_1(DECAF_invoke_insn_begin_callback, void, ptr)
 DEF_HELPER_1(DECAF_invoke_insn_end_callback, void, ptr)
 
 //added by Hu for better fpu emulation
-DEF_HELPER_0(DECAF_update_fpu, void);
+DEF_HELPER_0(DECAF_update_fpu, void)
 
 #ifdef CONFIG_TCG_TAINT
 DEF_HELPER_3(DECAF_invoke_eip_check_callback,void,tl,tl,tl)

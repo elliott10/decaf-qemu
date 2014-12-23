@@ -350,6 +350,9 @@ static inline intptr_t QEMU_ARTIFICIAL GET_TCGV_PTR(TCGv_ptr t)
 /* Helper can be safely suppressed if the return value is not used. */
 #define TCG_CALL_NO_SIDE_EFFECTS    0x0040
 
+//xly for decaf
+#define TCG_CALL_PURE           0x0010
+
 /* convenience version of most used call flags */
 #define TCG_CALL_NO_RWG         TCG_CALL_NO_READ_GLOBALS
 #define TCG_CALL_NO_WG          TCG_CALL_NO_WRITE_GLOBALS
