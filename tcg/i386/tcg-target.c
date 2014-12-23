@@ -1264,6 +1264,26 @@ static void * const qemu_st_helpers[16] = {
 };
 
 #ifdef CONFIG_TCG_TAINT
+static void * const taint_qemu_ld_helpers[16] = {
+    [MO_UB]   = taint_helper_ret_ldub_mmu,
+    [MO_LEUW] = taint_helper_le_lduw_mmu,
+    [MO_LEUL] = taint_helper_le_ldul_mmu,
+    [MO_LEQ]  = taint_helper_le_ldq_mmu,
+    [MO_BEUW] = taint_helper_be_lduw_mmu,
+    [MO_BEUL] = taint_helper_be_ldul_mmu,
+    [MO_BEQ]  = taint_helper_be_ldq_mmu,
+};
+
+static void * const taint_qemu_st_helpers[16] = {
+    [MO_UB]   = taint_helper_ret_stb_mmu,
+    [MO_LEUW] = taint_helper_le_stw_mmu,
+    [MO_LEUL] = taint_helper_le_stl_mmu,
+    [MO_LEQ]  = taint_helper_le_stq_mmu,
+    [MO_BEUW] = taint_helper_be_stw_mmu,
+    [MO_BEUL] = taint_helper_be_stl_mmu,
+    [MO_BEQ]  = taint_helper_be_stq_mmu,
+};
+/* xly for decaf
 static void *taint_qemu_ld_helpers[4] = {
 	__taint_ldb_mmu,
 	__taint_ldw_mmu,
@@ -1277,6 +1297,7 @@ static void *taint_qemu_st_helpers[4] = {
 	__taint_stl_mmu,
 	__taint_stq_mmu,
 };
+*/
 #endif /* CONFIG_TCG_TAINT */
 
 
@@ -1654,6 +1675,116 @@ static void tcg_out_qemu_ld_direct(TCGContext *s, TCGReg datalo, TCGReg datahi,
     }
 }
 
+//xly for decaf
+#ifdef CONFIG_TCG_TAINT
+static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, bool is64)
+{
+    TCGReg datalo, datahi, addrlo;
+    TCGReg addrhi __attribute__((unused));
+    TCGMemOp opc;
+//#if defined(CONFIG_SOFTMMU)
+    int mem_index;
+    TCGMemOp s_bits;
+    tcg_insn_unit *label_ptr[2];
+//#endif
+
+    datalo = *args++;
+    datahi = (TCG_TARGET_REG_BITS == 32 && is64 ? *args++ : 0);
+    addrlo = *args++;
+    addrhi = (TARGET_LONG_BITS > TCG_TARGET_REG_BITS ? *args++ : 0);
+    opc = *args++;
+
+//#if defined(CONFIG_SOFTMMU)
+    mem_index = *args++;
+    s_bits = opc & MO_SIZE;
+
+    /* AWH - Save the virtual address */
+    tcg_out_push(s, args[addrlo]);
+
+    tcg_out_tlb_load(s, addrlo, addrhi, mem_index, s_bits,
+		    label_ptr, offsetof(CPUTLBEntry, addr_read));
+
+    /* TLB Hit.  */
+    /* AWH - Before we call the functionality in the function 
+       tcg_out_qemu_ld_direct(), we push some parms, call our "raw" taint load 
+       functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
+    tcg_out_pop(s, args[addrlo]);
+
+    if (s_bits == 3)
+	    tcg_out_push(s, datahi);
+    tcg_out_push(s, datalo);
+    tcg_out_push(s, TCG_REG_L1);
+    tcg_out_push(s, TCG_REG_L0);
+    tcg_out_mov(s, TCG_TYPE_I32, 
+		    TCG_REG_L0, args[addrlo]);
+    switch (s_bits) {
+	    case MO_UB:
+	    case MO_SB:
+		    //tcg_out_calli(s, (tcg_target_long)__taint_ldb_raw);
+		    tcg_out_call(s, (tcg_target_long)taint_ldb_cb);
+		    break;
+	    case MO_UW:
+	    case MO_SW: 
+		    //tcg_out_calli(s, (tcg_target_long)__taint_ldw_raw);
+		    tcg_out_call(s, (tcg_target_long)taint_ldw_cb);
+		    break;
+	    case MO_UL:
+		    //tcg_out_calli(s, (tcg_target_long)__taint_ldl_raw);
+		    tcg_out_call(s, (tcg_target_long)taint_ldl_cb);
+		    break;
+	    case MO_Q:
+		    //tcg_out_calli(s, (tcg_target_long)__taint_ldq_raw);
+		    tcg_out_call(s, (tcg_target_long)taint_ldq_cb);
+		    break;
+	    default:
+		    tcg_abort();
+    }
+    tcg_out_pop(s, TCG_REG_L0);
+    tcg_out_pop(s, TCG_REG_L1);
+    tcg_out_pop(s, datalo);
+    if (s_bits == 3)
+	    tcg_out_pop(s, datahi);
+    /* AWH - End of our taint functionality for the TLB Hit case. */
+
+    tcg_out_qemu_ld_direct(s, datalo, datahi, TCG_REG_L1, 0, 0, opc);
+
+    /* Record the current context of a load into ldst label */
+    add_qemu_ldst_label(s, true, opc, datalo, datahi, addrlo, addrhi,
+		    mem_index, s->code_ptr, label_ptr);
+
+    /* AWH - Pop the virtual address off the stack */
+    tcg_out_pop(s, args[addrlo]);
+
+    //tcg_out_calli(s, (tcg_target_long)taint_qemu_ld_helpers[s_bits]);
+
+#if 0
+    {
+        int32_t offset = GUEST_BASE;
+        TCGReg base = addrlo;
+        int seg = 0;
+
+        /* ??? We assume all operations have left us with register contents
+           that are zero extended.  So far this appears to be true.  If we
+           want to enforce this, we can either do an explicit zero-extension
+           here, or (if GUEST_BASE == 0, or a segment register is in use)
+           use the ADDR32 prefix.  For now, do nothing.  */
+        if (GUEST_BASE && guest_base_flags) {
+            seg = guest_base_flags;
+            offset = 0;
+        } else if (TCG_TARGET_REG_BITS == 64 && offset != GUEST_BASE) {
+            tcg_out_movi(s, TCG_TYPE_I64, TCG_REG_L1, GUEST_BASE);
+            tgen_arithr(s, ARITH_ADD + P_REXW, TCG_REG_L1, base);
+            base = TCG_REG_L1;
+            offset = 0;
+        }
+
+        tcg_out_qemu_ld_direct(s, datalo, datahi, base, offset, seg, opc);
+    }
+#endif
+}
+#endif /* CONFIG_TCG_TAINT */
+
+
 /* XXX: qemu_ld and qemu_st could be modified to clobber only EDX and
    EAX. It will be useful once fixed registers globals are less
    common. */
@@ -1679,7 +1810,7 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args, bool is64)
     s_bits = opc & MO_SIZE;
 
         /* AWH - Save the virtual address */
-	    tcg_out_push(s, args[addrlo_idx]);
+	    tcg_out_push(s, args[addrlo]);
 
     tcg_out_tlb_load(s, addrlo, addrhi, mem_index, s_bits,
                      label_ptr, offsetof(CPUTLBEntry, addr_read));
@@ -1688,38 +1819,38 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args, bool is64)
     /* AWH - Before we call the functionality in the function 
        tcg_out_qemu_ld_direct(), we push some parms, call our "raw" taint load 
        functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
-    tcg_out_pop(s, args[addrlo_idx]);
+    tcg_out_pop(s, args[addrlo]);
 
     if (s_bits == 3)
-	    tcg_out_push(s, data_reg2);
-    tcg_out_push(s, data_reg);
-    tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-    tcg_out_push(s, tcg_target_call_iarg_regs[1]);
+	    tcg_out_push(s, datahi);
+    tcg_out_push(s, datalo);
+    tcg_out_push(s, TCG_REG_L1);
+    tcg_out_push(s, TCG_REG_L0);
     tcg_out_mov(s, TCG_TYPE_I32,
-		    tcg_target_call_iarg_regs[1], args[addrlo_idx]);
+		    tcg_target_call_iarg_regs[1], args[addrlo]);
     switch (s_bits) {
-	    case 0:
-	    case 0 | 4:
-		    tcg_out_calli(s, (tcg_target_long)ldb_cb);
+	    case MO_UB:
+	    case MO_SB:
+		    tcg_out_call(s, (tcg_target_long)ldb_cb);
 		    break;
-	    case 1:
-	    case 1 | 4:
-		    tcg_out_calli(s, (tcg_target_long)ldw_cb);
+	    case MO_UW:
+	    case MO_SW:
+		    tcg_out_call(s, (tcg_target_long)ldw_cb);
 		    break;
-	    case 2:
-		    tcg_out_calli(s, (tcg_target_long)ldl_cb);
+	    case MO_UL:
+		    tcg_out_call(s, (tcg_target_long)ldl_cb);
 		    break;
-	    case 3:
-		    tcg_out_calli(s, (tcg_target_long)ldq_cb);
+	    case MO_Q:
+		    tcg_out_call(s, (tcg_target_long)ldq_cb);
 		    break;
 	    default:
 		    tcg_abort();
     }
-    tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
-    tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
-    tcg_out_pop(s, data_reg);
+    tcg_out_pop(s, TCG_REG_L0);
+    tcg_out_pop(s, TCG_REG_L1);
+    tcg_out_pop(s, datalo);
     if (s_bits == 3)
-	    tcg_out_pop(s, data_reg2);
+	    tcg_out_pop(s, datahi);
 
     tcg_out_qemu_ld_direct(s, datalo, datahi, TCG_REG_L1, 0, 0, opc);
 
@@ -1727,7 +1858,7 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args, bool is64)
     add_qemu_ldst_label(s, true, opc, datalo, datahi, addrlo, addrhi,
                         mem_index, s->code_ptr, label_ptr);
         /* AWH - Pop the virtual address off the stack */
-	    tcg_out_pop(s, args[addrlo_idx]);
+	    tcg_out_pop(s, args[addrlo]);
 
 #else
     {
@@ -1830,6 +1961,106 @@ static void tcg_out_qemu_st_direct(TCGContext *s, TCGReg datalo, TCGReg datahi,
     }
 }
 
+//xly for decaf
+#ifdef CONFIG_TCG_TAINT
+static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, bool is64)
+{
+    TCGReg datalo, datahi, addrlo;
+    TCGReg addrhi __attribute__((unused));
+    TCGMemOp opc;
+//#if defined(CONFIG_SOFTMMU)
+    int mem_index;
+    TCGMemOp s_bits;
+    tcg_insn_unit *label_ptr[2];
+//#endif
+
+    datalo = *args++;
+    datahi = (TCG_TARGET_REG_BITS == 32 && is64 ? *args++ : 0);
+    addrlo = *args++;
+    addrhi = (TARGET_LONG_BITS > TCG_TARGET_REG_BITS ? *args++ : 0);
+    opc = *args++;
+
+//#if defined(CONFIG_SOFTMMU)
+    mem_index = *args++;
+    s_bits = opc & MO_SIZE;
+
+    /* AWH - Save the virtual address */
+    tcg_out_push(s, args[addrlo]);
+
+    tcg_out_tlb_load(s, addrlo, addrhi, mem_index, s_bits,
+		    label_ptr, offsetof(CPUTLBEntry, addr_write));
+
+    /* TLB Hit.  */
+    /* AWH - Restore the virtual address */
+    tcg_out_pop(s, args[addrlo]);
+    tcg_out_push(s, datalo); // Store for call to qemu_st_direct() below
+    tcg_out_push(s, TCG_REG_L1); // Same
+    tcg_out_mov(s, TCG_TYPE_I32, 
+		    TCG_REG_L0, args[addrlo]);
+   // tcg_out_call();
+    switch (opc) {
+	    case MO_8:
+		    //tcg_out_calli(s, (tcg_target_long)__taint_stb_raw);
+		    tcg_out_call(s, (tcg_target_long)taint_stb_cb);
+		    break;
+	    case MO_16:
+		    //tcg_out_calli(s, (tcg_target_long)__taint_stw_raw);
+		    tcg_out_call(s, (tcg_target_long)taint_stw_cb);
+		    break;
+	    case MO_32:
+		    //tcg_out_calli(s, (tcg_target_long)__taint_stl_raw);
+		    tcg_out_call(s, (tcg_target_long)taint_stl_cb);
+		    break;
+		    // AWH: TODO: Doublecheck this
+	    case MO_64:
+		    //tcg_out_calli(s, (tcg_target_long)__taint_stq_raw);
+		    tcg_out_call(s, (tcg_target_long)taint_stq_cb);
+		    break;
+	    default:
+		    tcg_abort();
+    }
+    tcg_out_pop(s, TCG_REG_L1); // Pop for call to qemu_st_direct() below
+    tcg_out_pop(s, datalo); // Same
+
+    tcg_out_qemu_st_direct(s, datalo, datahi, TCG_REG_L1, 0, 0, opc);
+
+    /* Record the current context of a store into ldst label */
+    add_qemu_ldst_label(s, false, opc, datalo, datahi, addrlo, addrhi,
+                        mem_index, s->code_ptr, label_ptr);
+
+    /* AWH - Pop the virtual address off the stack */
+    tcg_out_pop(s, args[addrlo]);
+
+    //tcg_out_calli(s, (tcg_target_long)taint_qemu_st_helpers[s_bits]);
+
+#if 0
+    {
+        int32_t offset = GUEST_BASE;
+        TCGReg base = addrlo;
+        int seg = 0;
+
+        /* ??? We assume all operations have left us with register contents
+           that are zero extended.  So far this appears to be true.  If we
+           want to enforce this, we can either do an explicit zero-extension
+           here, or (if GUEST_BASE == 0, or a segment register is in use)
+           use the ADDR32 prefix.  For now, do nothing.  */
+        if (GUEST_BASE && guest_base_flags) {
+            seg = guest_base_flags;
+            offset = 0;
+        } else if (TCG_TARGET_REG_BITS == 64 && offset != GUEST_BASE) {
+            tcg_out_movi(s, TCG_TYPE_I64, TCG_REG_L1, GUEST_BASE);
+            tgen_arithr(s, ARITH_ADD + P_REXW, TCG_REG_L1, base);
+            base = TCG_REG_L1;
+            offset = 0;
+        }
+
+        tcg_out_qemu_st_direct(s, datalo, datahi, base, offset, seg, opc);
+    }
+#endif
+}
+#endif /* CONFIG_TCG_TAINT */
+
+
 static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args, bool is64)
 {
     TCGReg datalo, datahi, addrlo;
@@ -1852,39 +2083,39 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args, bool is64)
     s_bits = opc & MO_SIZE;
 
         /* AWH - Save the virtual address */
-	    tcg_out_push(s, args[addrlo_idx]);
+	    tcg_out_push(s, args[addrlo]);
 
     tcg_out_tlb_load(s, addrlo, addrhi, mem_index, s_bits,
                      label_ptr, offsetof(CPUTLBEntry, addr_write));
 
     /* TLB Hit.  */
     /* AWH - Restore the virtual address */
-    tcg_out_pop(s, args[addrlo_idx]);
-    tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
-    tcg_out_push(s, tcg_target_call_iarg_regs[0]); // Same
+    tcg_out_pop(s, args[addrlo]);
+    tcg_out_push(s, datalo); // Store for call to qemu_st_direct() below
+    tcg_out_push(s, TCG_REG_L1); // Same
     tcg_out_mov(s, TCG_TYPE_I32,
-		    tcg_target_call_iarg_regs[1], args[addrlo_idx]);
+		    TCG_REG_L0, args[addrlo]);
 
     switch (opc) {
-	    case 0:
-		    tcg_out_calli(s, (tcg_target_long)stb_cb);
+	    case MO_8:
+		    tcg_out_call(s, (tcg_target_long)stb_cb);
 		    break;
-	    case 1:
-		    tcg_out_calli(s, (tcg_target_long)stw_cb);
+	    case MO_16:
+		    tcg_out_call(s, (tcg_target_long)stw_cb);
 		    break;
-	    case 2:
-		    tcg_out_calli(s, (tcg_target_long)stl_cb);
+	    case MO_32:
+		    tcg_out_call(s, (tcg_target_long)stl_cb);
 		    break;
 		    // AWH: TODO: Doublecheck this
-	    case 3:
-		    tcg_out_calli(s, (tcg_target_long)stq_cb);
+	    case MO_64:
+		    tcg_out_call(s, (tcg_target_long)stq_cb);
 		    break;
 	    default:
 		    tcg_abort();
     }
 
-    tcg_out_pop(s, tcg_target_call_iarg_regs[0]); // Pop for call to qemu_st_direct() below
-    tcg_out_pop(s, data_reg); // Same
+    tcg_out_pop(s, TCG_REG_L1); // Pop for call to qemu_st_direct() below
+    tcg_out_pop(s, datalo); // Same
 
     /* TLB Hit.  */
     tcg_out_qemu_st_direct(s, datalo, datahi, TCG_REG_L1, 0, 0, opc);
@@ -1893,7 +2124,7 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args, bool is64)
     add_qemu_ldst_label(s, false, opc, datalo, datahi, addrlo, addrhi,
                         mem_index, s->code_ptr, label_ptr);
         /* AWH - Pop the virtual address off the stack */
-	    tcg_out_pop(s, args[addrlo_idx]);
+	    tcg_out_pop(s, args[addrlo]);
 
 #else
     {
@@ -1921,7 +2152,7 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args, bool is64)
 #endif
 }
 
-#ifdef CONFIG_TCG_TAINT
+#if 0
 static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
 	int data_reg, data_reg2 = 0;
 	int addrlo_idx;
@@ -2187,7 +2418,7 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
 	/* label2: */
 	*label_ptr[2] = s->code_ptr - label_ptr[2] - 1;
 }
-#endif /* CONFIG_TCG_TAINT */
+#endif
 
 
 static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
