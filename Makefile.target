@@ -95,7 +95,7 @@ obj-y += disas.o
 #libobj-y += libdecaf.a
 obj-y += $(LIBDECAF)
 #libobj-y += DECAF_main_x86.o
-obj-y += DECAF_target.o
+#obj-y += DECAF_target.o
 LIBS+=-ldl
 
 obj-$(call notempty,$(TARGET_XML_FILES)) += gdbstub-xml.o

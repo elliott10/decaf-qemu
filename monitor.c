@@ -851,7 +851,54 @@ static void help_cmd_dump(Monitor *mon, const mon_cmd_t *cmds,
         }
     }
 }
+//xly
+static void help_cmd(Monitor *mon, const char *name)
+{
+	char *args[MAX_ARGS];
+	int nb_args = 0; 
 
+	/* 1. parse user input */
+	if (name) {
+		/* special case for log, directly dump and return */
+		if (!strcmp(name, "log")) {
+			const QEMULogItem *item;
+			monitor_printf(mon, "Log items (comma separated):\n");
+			monitor_printf(mon, "%-10s %s\n", "none", "remove all logs");
+			for (item = qemu_log_items; item->mask != 0; item++) {
+				monitor_printf(mon, "%-10s %s\n", item->name, item->help);
+			}    
+			return;
+		}    
+
+		if (parse_cmdline(name, &nb_args, args) < 0) { 
+			return;
+		}    
+	}    
+
+	/* 2. dump the contents according to parsed args */
+	help_cmd_dump(mon, mon->cmd_table, args, nb_args, 0);
+
+	if (DECAF_mon_cmds != NULL)
+	{
+		help_cmd_dump(mon, DECAF_mon_cmds, args, nb_args, 0);
+	}
+	if (decaf_plugin && decaf_plugin->mon_cmds)
+		help_cmd_dump(mon, decaf_plugin->mon_cmds, args, nb_args, 0);
+
+	if (!strcmp(name, "info")) {
+		//LOK: Added the DECAF commands
+		if (DECAF_info_cmds != NULL)
+		{
+			help_cmd_dump(mon, DECAF_info_cmds, args, nb_args, 0);
+		}
+		if (decaf_plugin && decaf_plugin->info_cmds)
+			help_cmd_dump(mon, decaf_plugin->info_cmds, args, nb_args, 0);
+	}
+
+	free_cmdline_args(args, nb_args);
+}
+
+#if 0
 static void help_cmd(Monitor *mon, const char *name)
 {
     char *args[MAX_ARGS];
@@ -892,6 +939,7 @@ static void help_cmd(Monitor *mon, const char *name)
 
     free_cmdline_args(args, nb_args);
 }
+#endif
 
 static void do_help_cmd(Monitor *mon, const QDict *qdict)
 {
@@ -4500,13 +4548,16 @@ void object_del_completion(ReadLineState *rs, int nb_args, const char *str)
 }
 
 // AWH - Version that is exported to plugins
-static void do_sendkey(Monitor *mon, const QDict *qdict);
+static void do_sendkey(Monitor *mon, const QDict *qdict)
+{
+	hmp_send_key(mon, qdict);
+}
+
 void do_send_key(const char *string)
 {
 	QDict *qdict = qdict_new();
 	qdict_put(qdict, "string", qstring_from_str(string));
-//	do_sendkey(default_mon, qdict);
-	hmp_send_key(default_mon, qdict);
+	do_sendkey(default_mon, qdict);
 	qdict_del(qdict, "string");
 	//LOK: Changed to QDECREF according to its definition in qobject.h
 	QDECREF(qdict);
@@ -4745,13 +4796,13 @@ static void monitor_find_completion_by_table(Monitor *mon,
 	{
 		for (cmd = DECAF_mon_cmds; cmd->name != NULL; cmd++)
 		{
-			cmd_completion(cmdname, cmd->name);
+			cmd_completion(mon,cmdname, cmd->name);
 		}
 	}
 	// AWH - plugin cmds
 	if (decaf_plugin && decaf_plugin->mon_cmds)
 		for (cmd = decaf_plugin->mon_cmds; cmd->name != NULL; cmd++)
-			cmd_completion(cmdname, cmd->name);
+			cmd_completion(mon,cmdname, cmd->name);
 	//if (temu_plugin && temu_plugin->info_cmds)
 	//    for (cmd = temu_plugin->info_cmds; cmd->name != NULL; cmd++)
 	//        cmd_completion(cmdname, cmd->name);
@@ -4834,14 +4885,14 @@ static void monitor_find_completion_by_table(Monitor *mon,
 		    {
 			    for (cmd = DECAF_info_cmds; cmd->name != NULL; cmd++)
 			    {
-				    cmd_completion(str, cmd->name);
+				    cmd_completion(mon,str, cmd->name);
 			    }
 		    }
 
 		    // AWH - plugin info cmds
 		    if (decaf_plugin && decaf_plugin->info_cmds)
 			    for (cmd = decaf_plugin->info_cmds; cmd->name != NULL; cmd++)
-				    cmd_completion(str, cmd->name);
+				    cmd_completion(mon,str, cmd->name);
 	    }
             else if (!strcmp(cmd->name, "help|?")) {
                 monitor_find_completion_by_table(mon, cmd_table,
@@ -4851,13 +4902,13 @@ static void monitor_find_completion_by_table(Monitor *mon,
 		{
 			for (cmd = DECAF_mon_cmds; cmd->name != NULL; cmd++)
 			{
-				cmd_completion(str, cmd->name);
+				cmd_completion(mon,str, cmd->name);
 			}
 		}
 		// AWH - plugin cmds
 		if (decaf_plugin && decaf_plugin->mon_cmds)
 			for (cmd = decaf_plugin->mon_cmds; cmd->name != NULL; cmd++)
-				cmd_completion(str, cmd->name);
+				cmd_completion(mon,str, cmd->name);
 	    }
             break;
         default:

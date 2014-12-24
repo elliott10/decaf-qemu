@@ -71,6 +71,7 @@ int monitor_fdset_dup_fd_add(int64_t fdset_id, int dup_fd);
 void monitor_fdset_dup_fd_remove(int dup_fd);
 int monitor_fdset_dup_fd_find(int dup_fd);
 
+/*
 // AWH - moved here from monitor.c so that the plugins can use it
 typedef struct mon_cmd_t {
 	const char *name;
@@ -87,6 +88,27 @@ typedef struct mon_cmd_t {
 	} mhandler;
 	bool qapi;
 	int flags;
+} mon_cmd_t;
+*/
+typedef struct mon_cmd_t {
+    const char *name;
+    const char *args_type;
+    const char *params;
+    const char *help;
+    void (*user_print)(Monitor *mon, const QObject *data);
+    union {
+        void (*cmd)(Monitor *mon, const QDict *qdict);
+        int  (*cmd_new)(Monitor *mon, const QDict *params, QObject **ret_data);
+        int  (*cmd_async)(Monitor *mon, const QDict *params,
+                          MonitorCompletion *cb, void *opaque);
+    } mhandler;
+    int flags;
+    /* @sub_table is a list of 2nd level of commands. If it do not exist,
+     * mhandler should be used. If it exist, sub_table[?].mhandler should be
+     * used, and mhandler of 1st level plays the role of help function.
+     */
+    struct mon_cmd_t *sub_table;
+    void (*command_completion)(ReadLineState *rs, int nb_args, const char *str);
 } mon_cmd_t;
 
 #ifdef __cplusplus
