@@ -131,6 +131,14 @@ typedef void (RAMBlockIterFunc)(void *host_addr,
 
 void qemu_ram_foreach_block(RAMBlockIterFunc func, void *opaque);
 
+#define IO_MEM_SHIFT       3
+
+#define IO_MEM_RAM         (0 << IO_MEM_SHIFT) /* hardcoded offset */
+#define IO_MEM_ROM         (1 << IO_MEM_SHIFT) /* hardcoded offset */
+#define IO_MEM_UNASSIGNED  (2 << IO_MEM_SHIFT)
+#define IO_MEM_NOTDIRTY    (3 << IO_MEM_SHIFT)
+
+
 #endif
 
 #endif /* !CPU_COMMON_H */

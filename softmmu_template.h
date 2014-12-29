@@ -24,7 +24,6 @@
 #include "qemu/timer.h"
 #include "exec/address-spaces.h"
 #include "exec/memory.h"
-
 #include "shared/DECAF_callback_to_QEMU.h"
 #ifdef CONFIG_TCG_TAINT
 #include "tcg.h"
@@ -254,8 +253,8 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 #endif
     //Hu-Mem read callback
 #ifndef SOFTMMU_CODE_ACCESS
-    if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))// host vitual addr+addend
-	    helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)),DATA_SIZE);
+    if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))// host vitual haddr xly:addr + addend --> haddr
+	    helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(haddr)),DATA_SIZE);
 #endif
     //end
 
@@ -345,11 +344,11 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
     res = glue(glue(ld, LSUFFIX), _be_p)((uint8_t *)haddr);
     //Hu-Mem read callback
 #ifndef SOFTMMU_CODE_ACCESS
-
     if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
-	    helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)),DATA_SIZE);
+	    helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(haddr)),DATA_SIZE);
 #endif
     //end
+
     return res;
 }
 #endif /* DATA_SIZE > 1 */
@@ -387,6 +386,9 @@ static inline void glue(io_write, SUFFIX)(CPUArchState *env,
                                           target_ulong addr,
                                           uintptr_t retaddr)
 {
+    int index;
+    index = (physaddr >> IO_MEM_SHIFT) & (IO_MEM_NB_ENTRIES - 1);
+
     CPUState *cpu = ENV_GET_CPU(env);
     MemoryRegion *mr = iotlb_to_region(cpu->as, physaddr);
 
@@ -485,10 +487,10 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 #else
     glue(glue(st, SUFFIX), _le_p)((uint8_t *)haddr, val);
 #endif
-                //Hu-Mem write callback
+    //Hu-Mem write callback
 #ifndef SOFTMMU_CODE_ACCESS
     if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-	    helper_DECAF_invoke_mem_write_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)),DATA_SIZE);
+	    helper_DECAF_invoke_mem_write_callback(addr,qemu_ram_addr_from_host_nofail((void *)(haddr)),DATA_SIZE);
 #endif
     //end
 }
@@ -537,9 +539,9 @@ void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
     /* Handle slow unaligned access (it spans two pages or IO).  */
     if (DATA_SIZE > 1
         && unlikely((addr & ~TARGET_PAGE_MASK) + DATA_SIZE - 1
-                     >= TARGET_PAGE_SIZE)) {
-        int i;
-    do_unaligned_access:
+				>= TARGET_PAGE_SIZE)) {
+		int i;
+	do_unaligned_access:
 #ifdef ALIGNED_ONLY
         cpu_unaligned_access(ENV_GET_CPU(env), addr, MMU_DATA_STORE,
                              mmu_idx, retaddr);
@@ -571,7 +573,7 @@ void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
     //Hu-Mem read callback
 #if defined(ADD_MEM_CB)
     if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-	    helper_DECAF_invoke_mem_write_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)),DATA_SIZE);
+	    helper_DECAF_invoke_mem_write_callback(addr,qemu_ram_addr_from_host_nofail((void *)(haddr)),DATA_SIZE);
 #endif
     //end
 

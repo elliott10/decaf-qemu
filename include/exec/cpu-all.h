@@ -26,6 +26,7 @@
 #include "qom/cpu.h"
 //#include "taintcheck.h" /* AWH */
 //#include "taintcheck_opt.h" /* AWH */
+#define cpu_single_env current_cpu
 
 /* some important defines:
  *
@@ -325,6 +326,9 @@ typedef struct RAMList {
     uint32_t version;
 } RAMList;
 extern RAMList ram_list;
+
+//xly for decaf
+#define IO_MEM_NB_ENTRIES  (1 << (TARGET_PAGE_BITS  - IO_MEM_SHIFT))
 
 /* Flags stored in the low bits of the TLB virtual address.  These are
    defined so that fast path ram access is all zeros.  */
