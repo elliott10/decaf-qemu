@@ -167,13 +167,13 @@ static inline DATA_TYPE glue(taint_io_read, SUFFIX)(CPUArchState *env,
         cpu_io_recompile(cpu, retaddr);
     }
 
-    cpu_single_env->tempidx = 0;
+    env->tempidx = 0;
     cpu->mem_io_vaddr = addr;
     io_mem_read(mr, physaddr, &val, 1 << SHIFT);
-    //res.taint = cpu_single_env->tempidx;
+    //res.taint = env->tempidx;
 #if 0 // AWH
-    if (cpu_single_env->tempidx/*res.taint*/) {
-	    fprintf(stderr, "MMAP IO %s() -> physaddr: 0x%08x, taint: %u\n", "__taint_io_read", physaddr, cpu_single_env->tempidx);
+    if (env->tempidx/*res.taint*/) {
+	    fprintf(stderr, "MMAP IO %s() -> physaddr: 0x%08x, taint: %u\n", "__taint_io_read", physaddr, env->tempidx);
 	    //__asm__ ("int $3");
     }
 #endif // AWH
@@ -190,7 +190,7 @@ WORD_TYPE taint_helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_
     int index = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
     target_ulong tlb_addr = env->tlb_table[mmu_idx][index].ADDR_READ;
     uintptr_t haddr;
-    DATA_TYPE res;
+    DATA_TYPE res, taint1, taint2;
         //res.dummy = 0;
 	#if 0 // AWH
 	#if DATA_SIZE == 4
@@ -253,11 +253,38 @@ WORD_TYPE taint_helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_
         /* Note the adjustment at the beginning of the function.
            Undo that for the recursion.  */
         res1 = taint_helper_le_ld_name(env, addr1, mmu_idx, retaddr + GETPC_ADJ);
-        res2 = taint_helper_le_ld_name(env, addr2, mmu_idx, retaddr + GETPC_ADJ);
+
+	/* Special case for 32-bit host/guest and a 64-bit load */
+#if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
+	taint1 = env->tempidx2;
+	taint1 = taint1 << 32;
+	taint1 |= env->tempidx;
+	//taint1 = env->tempidx | (env->tempidx2 << 32);
+#else
+	taint1 = env->tempidx;
+#endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
+
+	res2 = taint_helper_le_ld_name(env, addr2, mmu_idx, retaddr + GETPC_ADJ);
+
+#if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
+	taint2 = env->tempidx2;
+	taint2 = taint2 << 32;
+	taint2 |= env->tempidx;
+	//taint2 = env->tempidx | (env->tempidx2 << 32);
+#else
+	taint2 = env->tempidx;
+#endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
+
         shift = (addr & (DATA_SIZE - 1)) * 8;
 
         /* Little-endian combine.  */
         res = (res1 >> shift) | (res2 << ((DATA_SIZE * 8) - shift));
+#if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
+	env->tempidx = ((taint1 >> shift) | (taint2 << ((DATA_SIZE * 8) - shift))) & 0xFFFFFFFF;
+	env->tempidx2 = (((taint1 >> shift) | (taint2 << ((DATA_SIZE * 8) - shift))) >> 32) & 0xFFFFFFFF;
+#else
+	env->tempidx = (taint1 >> shift) | (taint2 << ((DATA_SIZE * 8) - shift));
+#endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
         return res;
     }
 
@@ -368,33 +395,33 @@ WORD_TYPE taint_helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_
 
 	/* Special case for 32-bit host/guest and a 64-bit load */
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
-	taint1 = cpu_single_env->tempidx2;
+	taint1 = env->tempidx2;
 	taint1 = taint1 << 32;
-	taint1 |= cpu_single_env->tempidx;
-	//taint1 = cpu_single_env->tempidx | (cpu_single_env->tempidx2 << 32);
+	taint1 |= env->tempidx;
+	//taint1 = env->tempidx | (env->tempidx2 << 32);
 #else
-	taint1 = cpu_single_env->tempidx;
+	taint1 = env->tempidx;
 #endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
 
         res2 = taint_helper_be_ld_name(env, addr2, mmu_idx, retaddr + GETPC_ADJ);
 
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
-	taint2 = cpu_single_env->tempidx2;
+	taint2 = env->tempidx2;
 	taint2 = taint2 << 32;
-	taint2 |= cpu_single_env->tempidx;
-	//taint2 = cpu_single_env->tempidx | (cpu_single_env->tempidx2 << 32);
+	taint2 |= env->tempidx;
+	//taint2 = env->tempidx | (env->tempidx2 << 32);
 #else
-	taint2 = cpu_single_env->tempidx;
+	taint2 = env->tempidx;
 #endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
         shift = (addr & (DATA_SIZE - 1)) * 8;
 
         /* Big-endian combine.  */
 	res = (res1 << shift) | (res2 >> ((DATA_SIZE * 8) - shift));
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
-	cpu_single_env->tempidx = ((taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift))) & 0xFFFFFFFF;
-	cpu_single_env->tempidx2 = (((taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift))) >> 32) & 0xFFFFFFFF;
+	env->tempidx = ((taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift))) & 0xFFFFFFFF;
+	env->tempidx2 = (((taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift))) >> 32) & 0xFFFFFFFF;
 #else
-	cpu_single_env->tempidx = (taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift));
+	env->tempidx = (taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift));
 #endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
         return res;
     }
@@ -491,7 +518,7 @@ static inline void glue(taint_io_write, SUFFIX)(CPUArchState *env,
 	    //glue(glue(__taint_st, SUFFIX), _raw_paddr)(physaddr,addr);
 
     /* Clean tempidx */  
-    //cpu_single_env->tempidx = 0;
+    //env->tempidx = 0;
 }
 
 void taint_helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
@@ -500,6 +527,7 @@ void taint_helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val
     int index = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
     target_ulong tlb_addr = env->tlb_table[mmu_idx][index].addr_write;
     uintptr_t haddr;
+    DATA_TYPE backup_taint;
 
     #if 0 // AWH
     if (taint) {
@@ -552,7 +580,19 @@ void taint_helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val
         && unlikely((addr & ~TARGET_PAGE_MASK) + DATA_SIZE - 1
                      >= TARGET_PAGE_SIZE)) {
         int i;
-    do_unaligned_access:
+do_unaligned_access:
+	/* AWH - Backup the taint held in tempidx and tempidx2 and
+	   setup tempidx for each of these single-byte stores */
+	/* Special case for 32-bit host/guest and a 64-bit load */
+#if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
+	backup_taint = env->tempidx2;
+	backup_taint = backup_taint << 32;
+	backup_taint |= env->tempidx;
+	//backup_taint = env->tempidx | (env->tempidx2 << 32);
+#else
+	backup_taint = env->tempidx;
+#endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
+
 #ifdef ALIGNED_ONLY
         cpu_unaligned_access(ENV_GET_CPU(env), addr, MMU_DATA_STORE,
                              mmu_idx, retaddr);
@@ -561,11 +601,12 @@ void taint_helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val
         /* Note: relies on the fact that tlb_fill() does not remove the
          * previous page from the TLB cache.  */
         for (i = DATA_SIZE - 1; i >= 0; i--) {
+		env->tempidx = backup_taint >> (i * 8);
             /* Little-endian extract.  */
             uint8_t val8 = val >> (i * 8);
             /* Note the adjustment at the beginning of the function.
                Undo that for the recursion.  */
-            glue(helper_ret_stb, MMUSUFFIX)(env, addr + i, val8,
+            glue(taint_helper_ret_stb, MMUSUFFIX)(env, addr + i, val8,
                                             mmu_idx, retaddr + GETPC_ADJ);
         }
         return;
@@ -649,12 +690,12 @@ do_unaligned_access:
 	       setup tempidx for each of these single-byte stores */
 	    /* Special case for 32-bit host/guest and a 64-bit load */
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
-	    backup_taint = cpu_single_env->tempidx2;
+	    backup_taint = env->tempidx2;
 	    backup_taint = backup_taint << 32;
-	    backup_taint |= cpu_single_env->tempidx;
-	    //backup_taint = cpu_single_env->tempidx | (cpu_single_env->tempidx2 << 32);
+	    backup_taint |= env->tempidx;
+	    //backup_taint = env->tempidx | (env->tempidx2 << 32);
 #else
-	    backup_taint = cpu_single_env->tempidx;
+	    backup_taint = env->tempidx;
 #endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
 
 #ifdef ALIGNED_ONLY
@@ -665,12 +706,12 @@ do_unaligned_access:
         /* Note: relies on the fact that tlb_fill() does not remove the
          * previous page from the TLB cache.  */
         for (i = DATA_SIZE - 1; i >= 0; i--) {
-	    cpu_single_env->tempidx = backup_taint >> (((DATA_SIZE - 1) * 8) - (i * 8));
+	    env->tempidx = backup_taint >> (((DATA_SIZE - 1) * 8) - (i * 8));
             /* Big-endian extract.  */
             uint8_t val8 = val >> (((DATA_SIZE - 1) * 8) - (i * 8));
             /* Note the adjustment at the beginning of the function.
                Undo that for the recursion.  */
-            glue(helper_ret_stb, MMUSUFFIX)(env, addr + i, val8,
+            glue(taint_helper_ret_stb, MMUSUFFIX)(env, addr + i, val8,
                                             mmu_idx, retaddr + GETPC_ADJ);
         }
         return;
