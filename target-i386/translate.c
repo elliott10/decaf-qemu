@@ -2291,7 +2291,7 @@ static inline void gen_goto_tb(DisasContext *s, int tb_num, target_ulong eip)
 
 		t_cur_pc = tcg_const_ptr(cur_pc);
 		t_next_pc = tcg_temp_new_ptr();
-		tcg_gen_ld_tl(t_next_pc, cpu_env, offsetof(CPUState, eip));
+		tcg_gen_ld_tl(t_next_pc, cpu_env, offsetof(CPUArchState, eip));
 		t_opcode = tcg_const_i32(cur_opcode);
 		gen_helper_DECAF_invoke_opcode_range_callback(cpu_env, t_cur_pc, t_next_pc, t_opcode);
 
@@ -2677,7 +2677,7 @@ static void gen_eob(DisasContext *s)
 
 		    t_cur_pc = tcg_const_ptr(cur_pc);
 		    t_next_pc = tcg_temp_new_ptr();
-		    tcg_gen_ld_tl(t_next_pc, cpu_env, offsetof(CPUState, eip));
+		    tcg_gen_ld_tl(t_next_pc, cpu_env, offsetof(CPUArchState, eip));
 		    t_opcode = tcg_const_i32(cur_opcode);
 		    gen_helper_DECAF_invoke_opcode_range_callback(cpu_env, t_cur_pc, t_next_pc, t_opcode);
 
@@ -5361,7 +5361,7 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
 	      it know that this is a cmpxchg opcode and that the taint
 	        in the EAX register should be cleared. */
 #ifdef CONFIG_TCG_TAINT
-		            gen_helper_DECAF_taint_cmpxchg();
+	    gen_helper_DECAF_taint_cmpxchg();
 #endif /* CONFIG_TCG_TAINT */
         }
         break;
@@ -8018,7 +8018,7 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
 
 		    t_cur_pc = tcg_const_ptr(cur_pc);
 		    t_next_pc = tcg_temp_new_ptr();
-		    tcg_gen_ld_tl(t_next_pc, cpu_env, offsetof(CPUState, eip));
+		    tcg_gen_ld_tl(t_next_pc, cpu_env, offsetof(CPUArchState, eip));
 		    t_opcode = tcg_const_i32(b);
 		    gen_helper_DECAF_invoke_opcode_range_callback(cpu_env, t_cur_pc, t_next_pc, t_opcode);
 
@@ -8068,6 +8068,37 @@ void optimize_flags_init(void)
         [R_ESP] = "esp",
 #endif
     };
+
+    static const char taint_reg_names[CPU_NB_REGS][4] = {
+#ifdef TARGET_X86_64
+        [R_EAX] = "taint_rax",
+        [R_EBX] = "taint_rbx",
+        [R_ECX] = "taint_rcx",
+        [R_EDX] = "taint_rdx",
+        [R_ESI] = "taint_rsi",
+        [R_EDI] = "taint_rdi",
+        [R_EBP] = "taint_rbp",
+        [R_ESP] = "taint_rsp",
+        [8]  = "taint_rax",
+        [9]  = "taint_rbx",
+        [10] = "taint_rcx",
+        [11] = "taint_rdx",
+        [12] = "taint_rsi",
+        [13] = "taint_rdi",
+        [14] = "taint_rbp",
+        [15] = "taint_rsp",
+#else
+        [R_EAX] = "taint_eax",
+        [R_EBX] = "taint_ebx",
+        [R_ECX] = "taint_ecx",
+        [R_EDX] = "taint_edx",
+        [R_ESI] = "taint_esi",
+        [R_EDI] = "taint_edi",
+        [R_EBP] = "taint_ebp",
+        [R_ESP] = "taint_esp",
+#endif
+    };
+
     int i;
 
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
@@ -8079,56 +8110,58 @@ void optimize_flags_init(void)
                                     "cc_src");
     cpu_cc_src2 = tcg_global_mem_new(TCG_AREG0, offsetof(CPUX86State, cc_src2),
                                      "cc_src2");
-#ifdef CONFIG_TCG_TAINT
-    taint_cpu_cc_src = tcg_global_mem_new(TCG_AREG0, offsetof(CPUState, taint_cc_src),
-		    "taint_cc_src");
-    taint_cpu_cc_dst = tcg_global_mem_new(TCG_AREG0, offsetof(CPUState, taint_cc_dst),
-		    "taint_cc_dst");
-    taint_cpu_cc_tmp = tcg_global_mem_new(TCG_AREG0, offsetof(CPUState, taint_cc_tmp),
-		    "taint_cc_tmp");
 
-    eip_taint = tcg_global_mem_new(TCG_AREG0, offsetof(CPUState, eip_taint),
+#ifdef CONFIG_TCG_TAINT
+    taint_cpu_cc_src = tcg_global_mem_new(TCG_AREG0, offsetof(CPUArchState, taint_cc_src),
+		    "taint_cc_src");
+    taint_cpu_cc_dst = tcg_global_mem_new(TCG_AREG0, offsetof(CPUArchState, taint_cc_dst),
+		    "taint_cc_dst");
+    //taint_cpu_cc_tmp = tcg_global_mem_new(TCG_AREG0, offsetof(CPUArchState, taint_cc_tmp),
+//		    "taint_cc_tmp");
+
+    eip_taint = tcg_global_mem_new(TCG_AREG0, offsetof(CPUArchState, eip_taint),
 		    "eip_taint");
     shadow_arg[(int)cpu_cc_src] = taint_cpu_cc_src;
     shadow_arg[(int)cpu_cc_dst] = taint_cpu_cc_dst;
-    shadow_arg[(int)cpu_cc_tmp] = taint_cpu_cc_tmp;
+ //   shadow_arg[(int)cpu_cc_tmp] = taint_cpu_cc_tmp;
 #endif /* CONFIG_TCG_TAINT */
 
+#if 0
 #ifdef TARGET_X86_64
 #ifdef CONFIG_TCG_TAINT
     taint_cpu_regs[R_EAX] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_EAX]), "taint_rax");
+		    offsetof(CPUArchState, taint_regs[R_EAX]), "taint_rax");
     taint_cpu_regs[R_ECX] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_ECX]), "taint_rcx");
+		    offsetof(CPUArchState, taint_regs[R_ECX]), "taint_rcx");
     taint_cpu_regs[R_EDX] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_EDX]), "taint_rdx");
+		    offsetof(CPUArchState, taint_regs[R_EDX]), "taint_rdx");
     taint_cpu_regs[R_EBX] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_EBX]), "taint_rbx");
+		    offsetof(CPUArchState, taint_regs[R_EBX]), "taint_rbx");
     // taint_cpu_regs[R_ESP] = tcg_global_mem_new_i64(TCG_AREG0,
-    //                                         offsetof(CPUState, taint_regs[R_ESP]), "taint_rsp");
+    //                                         offsetof(CPUArchState, taint_regs[R_ESP]), "taint_rsp");
     //  taint_cpu_regs[R_EBP] = tcg_global_mem_new_i64(TCG_AREG0,
-    //                                          offsetof(CPUState, taint_regs[R_EBP]), "taint_rbp");
+    //                                          offsetof(CPUArchState, taint_regs[R_EBP]), "taint_rbp");
     taint_cpu_regs[R_ESI] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_ESI]), "taint_rsi");
+		    offsetof(CPUArchState, taint_regs[R_ESI]), "taint_rsi");
     taint_cpu_regs[R_EDI] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_EDI]), "taint_rdi");
+		    offsetof(CPUArchState, taint_regs[R_EDI]), "taint_rdi");
 
     taint_cpu_regs[8] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[8]), "taint_rax");
+		    offsetof(CPUArchState, taint_regs[8]), "taint_rax");
     taint_cpu_regs[9] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[9]), "taint_rcx");
+		    offsetof(CPUArchState, taint_regs[9]), "taint_rcx");
     taint_cpu_regs[10] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[10]), "taint_rdx");
+		    offsetof(CPUArchState, taint_regs[10]), "taint_rdx");
     taint_cpu_regs[11] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[11]), "taint_rbx");
+		    offsetof(CPUArchState, taint_regs[11]), "taint_rbx");
     taint_cpu_regs[12] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[12]), "taint_rsp");
+		    offsetof(CPUArchState, taint_regs[12]), "taint_rsp");
     taint_cpu_regs[13] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[13]), "taint_rbp");
+		    offsetof(CPUArchState, taint_regs[13]), "taint_rbp");
     taint_cpu_regs[14] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[14]), "taint_rsi");
+		    offsetof(CPUArchState, taint_regs[14]), "taint_rsi");
     taint_cpu_regs[15] = tcg_global_mem_new_i64(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[15]), "taint_rdi");
+		    offsetof(CPUArchState, taint_regs[15]), "taint_rdi");
 
     shadow_arg[cpu_regs[R_EAX]] = taint_cpu_regs[R_EAX];
     shadow_arg[cpu_regs[R_ECX]] = taint_cpu_regs[R_ECX];
@@ -8155,21 +8188,21 @@ void optimize_flags_init(void)
 
 #ifdef CONFIG_TCG_TAINT
     taint_cpu_regs[R_EAX] = tcg_global_mem_new_i32(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_EAX]), "taint_eax");
+		    offsetof(CPUArchState, taint_regs[R_EAX]), "taint_eax");
     taint_cpu_regs[R_ECX] = tcg_global_mem_new_i32(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_ECX]), "taint_ecx");
+		    offsetof(CPUArchState, taint_regs[R_ECX]), "taint_ecx");
     taint_cpu_regs[R_EDX] = tcg_global_mem_new_i32(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_EDX]), "taint_edx");
+		    offsetof(CPUArchState, taint_regs[R_EDX]), "taint_edx");
     taint_cpu_regs[R_EBX] = tcg_global_mem_new_i32(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_EBX]), "taint_ebx");
+		    offsetof(CPUArchState, taint_regs[R_EBX]), "taint_ebx");
     taint_cpu_regs[R_ESP] = tcg_global_mem_new_i32(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_ESP]), "taint_esp");
+		    offsetof(CPUArchState, taint_regs[R_ESP]), "taint_esp");
     taint_cpu_regs[R_EBP] = tcg_global_mem_new_i32(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_EBP]), "taint_ebp");
+		    offsetof(CPUArchState, taint_regs[R_EBP]), "taint_ebp");
     taint_cpu_regs[R_ESI] = tcg_global_mem_new_i32(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_ESI]), "taint_esi");
+		    offsetof(CPUArchState, taint_regs[R_ESI]), "taint_esi");
     taint_cpu_regs[R_EDI] = tcg_global_mem_new_i32(TCG_AREG0,
-		    offsetof(CPUState, taint_regs[R_EDI]), "taint_edi");
+		    offsetof(CPUArchState, taint_regs[R_EDI]), "taint_edi");
 
     shadow_arg[cpu_regs[R_EAX]] = taint_cpu_regs[R_EAX];
     shadow_arg[cpu_regs[R_ECX]] = taint_cpu_regs[R_ECX];
@@ -8187,12 +8220,32 @@ void optimize_flags_init(void)
 #endif /* CONFIG_TCG_TAINT */
 
 #endif
+#endif
 
     for (i = 0; i < CPU_NB_REGS; ++i) {
-        cpu_regs[i] = tcg_global_mem_new(TCG_AREG0,
-                                         offsetof(CPUX86State, regs[i]),
-                                         reg_names[i]);
+	    cpu_regs[i] = tcg_global_mem_new(TCG_AREG0,
+			    offsetof(CPUX86State, regs[i]),
+			    reg_names[i]);
+
+#ifdef CONFIG_TCG_TAINT
+	    taint_cpu_regs[i] = tcg_global_mem_new(TCG_AREG0,
+			    offsetof(CPUX86State, taint_regs[i]),
+			    taint_reg_names[i]);
+
+	    shadow_arg[(int)cpu_regs[i]] = taint_cpu_regs[i];
+#endif /* CONFIG_TCG_TAINT */
     }
+#ifdef CONFIG_TCG_TAINT
+#ifdef TARGET_X86_64
+    tempidx = tcg_global_mem_new(TCG_AREG0,
+		    offsetof(CPUX86State, tempidx), "tempidx");
+#else
+    tempidx = tcg_global_mem_new_i32(TCG_AREG0,
+		    offsetof(CPUX86State, tempidx), "tempidx");
+    tempidx2 = tcg_global_mem_new_i32(TCG_AREG0,
+		    offsetof(CPUX86State, tempidx2), "tempidx2");
+#endif
+#endif
 }
 
 #ifdef CONFIG_TCG_IR_LOG
@@ -8245,6 +8298,7 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
                                                   TranslationBlock *tb,
                                                   bool search_pc)
 {
+    //CPU_State *cs = CPU(cpu);
     CPUState *cs = CPU(cpu);
     CPUX86State *env = &cpu->env;
     DisasContext dc1, *dc = &dc1;
@@ -8344,9 +8398,9 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
     }
 
 #ifdef CONFIG_TCG_TAINT
-    gen_old_opc_ptr = gen_opc_ptr;
-    gen_old_opparam_ptr = gen_opparam_ptr;
-    memset(gen_opc_instr_start, 0, sizeof(uint8_t) * (OPC_BUF_SIZE));
+    gen_old_opc_ptr = tcg_ctx.gen_opc_ptr;
+    gen_old_opparam_ptr = tcg_ctx.gen_opparam_ptr;
+    memset(tcg_ctx.gen_opc_instr_start, 0, sizeof(uint8_t) * (OPC_BUF_SIZE));
 #endif /* CONFIG_TCG_TAINT */
 
     for(;;) {

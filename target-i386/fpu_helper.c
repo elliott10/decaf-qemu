@@ -1002,6 +1002,7 @@ void helper_fstenv(CPUX86State *env, target_ulong ptr, int data32)
 	//added by Hu for better fpu emulation
 	cpu_stl_data(env, ptr + 12, cpu_single_env->fpip_t);
 	cpu_stl_data(env, ptr + 16, cpu_single_env->fpcs_t);
+
         cpu_stl_data(env, ptr + 20, 0); /* fpoo */
         cpu_stl_data(env, ptr + 24, 0); /* fpos */
     } else {

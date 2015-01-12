@@ -26,7 +26,11 @@
 #include "qom/cpu.h"
 //#include "taintcheck.h" /* AWH */
 //#include "taintcheck_opt.h" /* AWH */
-#define cpu_single_env current_cpu
+
+//#define cpu_single_env current_cpu
+
+DECLARE_TLS(CPUArchState *, cpu_single_env);
+#define cpu_single_env tls_var(cpu_single_env)
 
 /* some important defines:
  *

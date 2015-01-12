@@ -313,6 +313,11 @@ extern struct CPUTailQ cpus;
 DECLARE_TLS(CPUState *, current_cpu);
 #define current_cpu tls_var(current_cpu)
 
+/*
+DECLARE_TLS(CPUArchState *, single_current_cpu);
+#define single_current_cpu tls_var(single_current_cpu)
+*/
+
 /**
  * cpu_paging_enabled:
  * @cpu: The CPU whose state is to be inspected.
