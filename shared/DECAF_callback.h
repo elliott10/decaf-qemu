@@ -23,7 +23,7 @@ http://code.google.com/p/decaf-platform/
 #ifndef DECAF_CALLBACK_H_
 #define DECAF_CALLBACK_H_
 
-//LOK: for CPUState
+//LOK: for CPUArchState
 // #include "cpu.h" //Not needed - included in DECAF_callback_common.h
 // #include "shared/DECAF_types.h" // not needed either
 #include "shared/DECAF_callback_common.h"
@@ -72,13 +72,13 @@ extern int DECAF_unregisterOptimizedBlockBeginCallback(DECAF_Handle handle);
 extern int DECAF_unregisterOptimizedBlockEndCallback(DECAF_Handle handle);
 
 extern DECAF_errno_t DECAF_unregisterOpcodeRangeCallbacks(DECAF_Handle handle);
-extern void helper_DECAF_invoke_block_begin_callback(CPUState* env, TranslationBlock* tb);
-extern void helper_DECAF_invoke_block_end_callback(CPUState* env, TranslationBlock* tb, gva_t from);
-extern void helper_DECAF_invoke_insn_begin_callback(CPUState* env);
-extern void helper_DECAF_invoke_insn_end_callback(CPUState* env);
+extern void helper_DECAF_invoke_block_begin_callback(CPUArchState* env, TranslationBlock* tb);
+extern void helper_DECAF_invoke_block_end_callback(CPUArchState* env, TranslationBlock* tb, gva_t from);
+extern void helper_DECAF_invoke_insn_begin_callback(CPUArchState* env);
+extern void helper_DECAF_invoke_insn_end_callback(CPUArchState* env);
 extern void helper_DECAF_invoke_eip_check_callback(gva_t source_eip, gva_t target_eip, gva_t target_eip_taint);
 extern void helper_DECAF_invoke_opcode_range_callback(
-  CPUState *env,
+  CPUArchState *env,
   target_ulong eip,
   target_ulong next_eip,
   uint32_t op);

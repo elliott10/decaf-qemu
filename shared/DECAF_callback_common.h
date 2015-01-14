@@ -97,19 +97,19 @@ typedef enum{
 
 typedef struct _DECAF_Block_Begin_Params
 {
-  CPUState* env;
+  CPUArchState* env;
   TranslationBlock* tb;
 }DECAF_Block_Begin_Params;
 
 typedef struct _DECAF_Tlb_Exec_Params
 {
-	CPUState *env;
+	CPUArchState *env;
 	gva_t vaddr;  //Address loaded to tlb exec cache
 } DECAF_Tlb_Exec_Params;
 
 typedef struct _DECAF_Opcode_Range_Params
 {
-	CPUState *env;
+	CPUArchState *env;
 	gva_t eip;
 	gva_t next_eip;
 	uint16_t op;
@@ -117,7 +117,7 @@ typedef struct _DECAF_Opcode_Range_Params
 
 typedef struct _DECAF_Block_End_Params
 {
-  CPUState* env;
+  CPUArchState* env;
   TranslationBlock* tb;
   //THIS IS A PC value - NOT EIP!!!!
   gva_t cur_pc;
@@ -126,12 +126,12 @@ typedef struct _DECAF_Block_End_Params
 
 typedef struct _DECAF_Insn_Begin_Params
 {
-  CPUState* env;
+  CPUArchState* env;
 } DECAF_Insn_Begin_Params;
 
 typedef struct _DECAF_Insn_End_Params
 {
-  CPUState* env;
+  CPUArchState* env;
 } DECAF_Insn_End_Params;
 typedef struct _DECAF_Mem_Read_Params
 {

@@ -45,7 +45,8 @@ extern "C" {
 #include "cpu.h"
 #include "config.h"
 #include "hw/hw.h" // AWH
-#include "qemu-timer.h"
+//#include "qemu-timer.h"
+#include "timer.h"
 #ifdef __cplusplus
 };
 #endif /* __cplusplus */
@@ -112,7 +113,7 @@ static inline int unresolved_attempt(process *proc, uint32_t addr)
 }
 
 
-void extract_symbols_info(CPUState *env, uint32_t cr3, target_ulong start_addr, module * mod)
+void extract_symbols_info(CPUArchState *env, uint32_t cr3, target_ulong start_addr, module * mod)
 {
 	if ( mod->symbols_extracted = read_elf_info(env, cr3, mod->name, start_addr, mod->size) ) {
 		monitor_printf(default_mon, "mod %s (start_addr = 0x%08x, end_addr = 0x%08x) is extracted \n", mod->name, start_addr, (start_addr + mod->size));
@@ -120,7 +121,7 @@ void extract_symbols_info(CPUState *env, uint32_t cr3, target_ulong start_addr, 
 }
 
 // get new module, basically reading from mm_struct
-static void get_new_modules_x86(CPUState* env, process * proc)
+static void get_new_modules_x86(CPUArchState* env, process * proc)
 {
 	target_ulong ts_mm, mm_mmap, vma_file, vma_next, f_dentry;
 	const int MAX_LOOP_COUNT = 1024;	// prevent infinite loop
@@ -382,7 +383,7 @@ next:
 }
 
 // get new modules for arm, remains to be improved
-static void get_new_modules_arm(CPUState* env, process * proc)
+static void get_new_modules_arm(CPUArchState* env, process * proc)
 {
 	target_ulong ts_mm, mm_mmap, vma_file, vma_next, f_dentry;
 	const int MAX_LOOP_COUNT = 1024;	// prevent infinite loop
@@ -546,9 +547,9 @@ next:
 	}
 }
 
-// void get_new_modules_mips(CPUState* env, process * proc) __attribute__((optimize("O0")));
+// void get_new_modules_mips(CPUArchState* env, process * proc) __attribute__((optimize("O0")));
 static
-void get_new_modules_mips(CPUState* env, process * proc)
+void get_new_modules_mips(CPUArchState* env, process * proc)
 {
 	target_ulong ts_mm, mm_mmap, vma_file, vma_next, f_dentry;
 	const int MAX_LOOP_COUNT = 1024;	// prevent infinite loop
@@ -742,10 +743,10 @@ next:
 
 
 
-// process * find_new_process(CPUState *env, uint32_t cr3) __attribute__((optimize("O0")));
+// process * find_new_process(CPUArchState *env, uint32_t cr3) __attribute__((optimize("O0")));
 // scan the task list and find new process
 static
-process * find_new_process(CPUState *env, uint32_t cr3) {
+process * find_new_process(CPUArchState *env, uint32_t cr3) {
 	uint32_t task_pid = 0, ts_parent_pid = 0, proc_cr3 = -1;
 	const int MAX_LOOP_COUNT = 1024; // maximum loop count when trying to find a new process (will there be any?)
 	process *right_proc = NULL;
@@ -843,7 +844,7 @@ process * find_new_process(CPUState *env, uint32_t cr3) {
 }
 
 // retrive symbols from specific process
-static void retrive_symbols(CPUState *env, process * proc) {
+static void retrive_symbols(CPUArchState *env, process * proc) {
 	if (!proc || proc->cr3 == -1UL) return;	// unnecessary check
 	for (unordered_map < uint32_t,module * >::iterator it = proc->module_list.begin();
 		it != proc->module_list.end(); it++) {
@@ -859,7 +860,7 @@ static void retrive_symbols(CPUState *env, process * proc) {
 // void Linux_tlb_call_back(DECAF_Callback_Params *temp) __attribute__((optimize("O0")));
 void Linux_tlb_call_back(DECAF_Callback_Params *temp)
 {
-	CPUState *ourenv = temp->tx.env;
+	CPUArchState *ourenv = temp->tx.env;
 	uint32_t vaddr = temp->tx.vaddr;
 	uint32_t pgd = -1;
 	process *proc = NULL;
@@ -904,7 +905,7 @@ void Linux_tlb_call_back(DECAF_Callback_Params *temp)
 // here we scan the task list in guest OS and sync ours with it
 static void check_procexit(void *) {
         /* AWH - cpu_single_env is invalid outside of the main exec thread */
-	CPUState *env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
+	CPUArchState *env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
 	qemu_mod_timer(recon_timer,
 				   qemu_get_clock_ns(vm_clock) + get_ticks_per_sec() * 10);
 
@@ -979,7 +980,7 @@ static void check_procexit(void *) {
 
 // to see whether this is a Linux or not,
 // the trick is to check the init_thread_info, init_task
-int find_linux(CPUState *env, uintptr_t insn_handle) {
+int find_linux(CPUArchState *env, uintptr_t insn_handle) {
 	target_ulong _thread_info = DECAF_getESP(env) & ~ (guestOS_THREAD_SIZE - 1);
 	static target_ulong _last_thread_info = 0;
 
@@ -1031,7 +1032,7 @@ void linux_vmi_init()
 }
 
 
-gpa_t mips_get_cur_pgd(CPUState *env)
+gpa_t mips_get_cur_pgd(CPUArchState *env)
 {
 	const target_ulong MIPS_KERNEL_BASE = 0x80000000;
 	gpa_t pgd = 0;

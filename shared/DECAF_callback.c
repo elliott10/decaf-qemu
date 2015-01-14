@@ -719,7 +719,7 @@ done:
   return -1;
 }
 
-void DECAF_invoke_tlb_exec_callback(CPUState *env, gva_t vaddr)
+void DECAF_invoke_tlb_exec_callback(CPUArchState *env, gva_t vaddr)
 {
 	  callback_struct_t *cb_struct;
 	  DECAF_Callback_Params params;
@@ -737,7 +737,7 @@ void DECAF_invoke_tlb_exec_callback(CPUState *env, gva_t vaddr)
 }
 
 void helper_DECAF_invoke_opcode_range_callback(
-		CPUState *env,
+		CPUArchState *env,
 		target_ulong eip,
 		target_ulong next_eip,
 		uint32_t op)
@@ -799,7 +799,7 @@ void helper_DECAF_invoke_opcode_range_callback(
 	            (var) = (tvar))
 #endif
 
-void helper_DECAF_invoke_block_begin_callback(CPUState* env, TranslationBlock* tb)
+void helper_DECAF_invoke_block_begin_callback(CPUArchState* env, TranslationBlock* tb)
 {
   static callback_struct_t *cb_struct, *tmp;
   static DECAF_Callback_Params params;
@@ -851,7 +851,7 @@ PUSH_ALL()
 POP_ALL()
 }
 
-void helper_DECAF_invoke_block_end_callback(CPUState* env, TranslationBlock* tb, gva_t from)
+void helper_DECAF_invoke_block_end_callback(CPUArchState* env, TranslationBlock* tb, gva_t from)
 {
   static callback_struct_t *cb_struct;
   static DECAF_Callback_Params params;
@@ -903,7 +903,7 @@ POP_ALL()
 
 }
 
-void helper_DECAF_invoke_insn_begin_callback(CPUState* env)
+void helper_DECAF_invoke_insn_begin_callback(CPUArchState* env)
 {
 	static callback_struct_t *cb_struct;
 	static DECAF_Callback_Params params;
@@ -923,7 +923,7 @@ PUSH_ALL()
 POP_ALL()
 }
 
-void helper_DECAF_invoke_insn_end_callback(CPUState* env)
+void helper_DECAF_invoke_insn_end_callback(CPUArchState* env)
 {
 	static callback_struct_t *cb_struct;
         static DECAF_Callback_Params params;

@@ -3,7 +3,7 @@
 #include <string.h> // For memset()
 #include "tcg.h"
 #include "taint_memory.h"
-#include "monitor.h" // For default_mon
+#include "monitor/monitor.h" // For default_mon
 #include "DECAF_callback_common.h"
 #include "shared/DECAF_callback_to_QEMU.h"
 
@@ -487,7 +487,7 @@ uint32_t calc_tainted_bytes(void){
 /* Console control commands */
 void do_enable_tainting_internal(void) {
   if (!taint_tracking_enabled) {
-    CPUState *env = cpu_single_env ? cpu_single_env : first_cpu;
+    CPUArchState *env = cpu_single_env ? cpu_single_env : first_cpu;
     DECAF_stop_vm();
     tb_flush(env);
     allocate_taint_memory_page_table();
@@ -498,7 +498,7 @@ void do_enable_tainting_internal(void) {
 
 void do_disable_tainting_internal(void) {
   if (taint_tracking_enabled) {
-    CPUState *env = cpu_single_env ? cpu_single_env : first_cpu;
+    CPUArchState *env = cpu_single_env ? cpu_single_env : first_cpu;
 
     DECAF_stop_vm();
     tb_flush(env);
@@ -607,7 +607,7 @@ int do_taint_pointers(Monitor *mon, const QDict *qdict, QObject **ret_data) {
   if (!taint_tracking_enabled)
     monitor_printf(default_mon, "Ignored, taint tracking is disabled\n");
   else {
-    CPUState *env;
+    CPUArchState *env;
     DECAF_stop_vm();
     env = cpu_single_env ? cpu_single_env : first_cpu;
     taint_load_pointers_enabled = qdict_get_bool(qdict, "load");

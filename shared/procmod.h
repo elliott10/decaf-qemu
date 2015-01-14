@@ -16,7 +16,7 @@ http://code.google.com/p/decaf-platform/
 #ifndef _PROCMOD_H_INCLUDED
 #define _PROCMOD_H_INCLUDED
 
-#include "monitor.h" // AWH
+#include "monitor/monitor.h" // AWH
 #include "shared/DECAF_types.h"
 
 
@@ -137,7 +137,7 @@ extern int find_process(uint32_t cr3, char proc[], size_t len, uint32_t *pid);
 /// @return the current thread id. If for some reason, this operation 
 /// is not successful, the return value is set to -1. 
 /// This function only works in Windows XP for Now. 
-extern uint32_t get_current_tid(CPUState* env);
+extern uint32_t get_current_tid(CPUArchState* env);
 
 extern void get_proc_modules(uint32_t pid, old_modinfo_t *buf, int size);
 

@@ -132,7 +132,7 @@ typedef struct _ELFInfo {
 	target_ulong dynamic_addr;
 	bfd_size_type dynamic_size;
 	
-	_ELFInfo(CPUState *_env, const uint32_t _cr3, const char * _mod_name, const target_ulong _start_addr, const uint64_t _size):
+	_ELFInfo(CPUArchState *_env, const uint32_t _cr3, const char * _mod_name, const target_ulong _start_addr, const uint64_t _size):
 		env(_env), cr3(_cr3), 
 		mod_name(_mod_name), start_addr(_start_addr), size(_size), 
 		string_table(NULL), string_table_length(0),
@@ -168,7 +168,7 @@ typedef struct _ELFInfo {
 
 private:
 	// context info
-	CPUState *env;
+	CPUArchState *env;
 	uint32_t cur_cr3;
 
 } ELFInfo;
@@ -893,7 +893,7 @@ read_elf_header (ELFInfo & elf)
 }
 
 /* Process one ELF object */
-int read_elf_info(CPUState *env, uint32_t cr3, const char * mod_name, target_ulong start_addr, uint64_t size) {
+int read_elf_info(CPUArchState *env, uint32_t cr3, const char * mod_name, target_ulong start_addr, uint64_t size) {
 	ELFInfo elf ( env, cr3, mod_name, start_addr, size );
 
 	int res = (cr3 != -1U)

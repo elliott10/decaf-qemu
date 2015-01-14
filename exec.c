@@ -2214,7 +2214,7 @@ bool address_space_rw(AddressSpace *as, hwaddr addr, uint8_t *buf,
 }
 
 // AWH - copies from temu/exec.c
-void DECAF_physical_memory_rw(CPUState* env, gpa_t addr, uint8_t *buf,
+void DECAF_physical_memory_rw(CPUArchState* env, gpa_t addr, uint8_t *buf,
 		int len, int is_write)
 {
 //xly-This function will not be used.

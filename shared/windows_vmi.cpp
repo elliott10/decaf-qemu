@@ -44,7 +44,8 @@ extern "C" {
 #include "cpu.h"
 #include "config.h"
 #include "hw/hw.h" // AWH
-#include "qemu-timer.h"
+//#include "qemu-timer.h"
+#include "timer.h"
 #include "DECAF_main.h"
 #include "DECAF_target.h"
 //#include "sysemu.h"
@@ -124,7 +125,7 @@ static inline int unresolved_attempt(process *proc, uint32_t addr)
 }
 
 
-static process * find_new_process(CPUState *env, uint32_t cr3) {
+static process * find_new_process(CPUArchState *env, uint32_t cr3) {
 	uint32_t kdvb, psAPH, curr_proc, next_proc;
 	process *pe;
 
@@ -178,7 +179,7 @@ next:
 }
 
 
-static inline int get_IMAGE_NT_HEADERS(uint32_t cr3, uint32_t base, IMAGE_NT_HEADERS *nth, CPUState *_env)
+static inline int get_IMAGE_NT_HEADERS(uint32_t cr3, uint32_t base, IMAGE_NT_HEADERS *nth, CPUArchState *_env)
 {
 	IMAGE_DOS_HEADER DosHeader;
 	DECAF_read_mem(_env, base, sizeof(IMAGE_DOS_HEADER), &DosHeader);
@@ -200,7 +201,7 @@ static inline int get_IMAGE_NT_HEADERS(uint32_t cr3, uint32_t base, IMAGE_NT_HEA
 
 //FIXME: this function may potentially overflow "buf" --Heng
 static inline int readustr_with_cr3(uint32_t addr, uint32_t cr3, void *buf,
-		CPUState *_env) {
+		CPUArchState *_env) {
 	uint32_t unicode_data[2];
 	int i, j, unicode_len = 0;
 	uint8_t unicode_str[MAX_UNICODE_LENGTH] = { '\0' };
@@ -241,7 +242,7 @@ static char * get_basename(char *fullname)
 	return fullname + last_slash + 1;
 }
 
-static void update_kernel_modules(CPUState *env, target_ulong vaddr) {
+static void update_kernel_modules(CPUArchState *env, target_ulong vaddr) {
 	uint32_t kdvb, psLM, curr_mod, next_mod;
 	uint32_t holder;
 	module *curr_entry = NULL;
@@ -312,7 +313,7 @@ next:
 
 }
 
-static void update_loaded_user_mods_with_peb(CPUState* env, process *proc,
+static void update_loaded_user_mods_with_peb(CPUArchState* env, process *proc,
 		uint32_t peb, target_ulong vaddr)
 {
 	uint32_t cr3 = proc->cr3;
@@ -372,7 +373,7 @@ next:
 
 }
 
-static void extract_export_table(IMAGE_NT_HEADERS *nth, uint32_t cr3, uint32_t base, module *mod, CPUState *_env)
+static void extract_export_table(IMAGE_NT_HEADERS *nth, uint32_t cr3, uint32_t base, module *mod, CPUArchState *_env)
 {
 	IMAGE_EXPORT_DIRECTORY ied;
 	DWORD edt_va, edt_size;
@@ -380,7 +381,7 @@ static void extract_export_table(IMAGE_NT_HEADERS *nth, uint32_t cr3, uint32_t b
 	WORD *ordinals=NULL;
 	char name[64];
 	DWORD i;
-	//CPUState *env = cpu_single_env;
+	//CPUArchState *env = cpu_single_env;
 	edt_va = nth->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
 	edt_size = nth->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
 
@@ -448,7 +449,7 @@ done:
 
 //Extract info in PE header and export table from a PE module
 //If everything is done successfully, mod->symbols_extracted will be set true
-static void extract_PE_info(uint32_t cr3, uint32_t base, module *mod, CPUState *_env)
+static void extract_PE_info(uint32_t cr3, uint32_t base, module *mod, CPUArchState *_env)
 {
 	IMAGE_NT_HEADERS nth;
 
@@ -468,7 +469,7 @@ static void extract_PE_info(uint32_t cr3, uint32_t base, module *mod, CPUState *
 }
 
 
-static void retrieve_missing_symbols(process *proc, CPUState *_env)
+static void retrieve_missing_symbols(process *proc, CPUArchState *_env)
 {
 	unordered_map < uint32_t,module * >::iterator iter = proc->module_list.begin();
 
@@ -479,7 +480,7 @@ static void retrieve_missing_symbols(process *proc, CPUState *_env)
 	}
 }
 
-static inline void get_new_modules(CPUState* _env, process * proc, target_ulong vaddr)
+static inline void get_new_modules(CPUArchState* _env, process * proc, target_ulong vaddr)
 {
 	uint32_t base = 0, self = 0, pid = 0;
 	if (proc == kernel_proc) {
@@ -502,7 +503,7 @@ static inline void get_new_modules(CPUState* _env, process * proc, target_ulong 
 
 static void tlb_call_back(DECAF_Callback_Params *temp)
 {
-	CPUState *ourenv = temp->tx.env;
+	CPUArchState *ourenv = temp->tx.env;
 	target_ulong vaddr = temp->tx.vaddr;
 	uint32_t cr3 = ourenv->cr[3];
 	process *proc;
@@ -536,7 +537,7 @@ static void tlb_call_back(DECAF_Callback_Params *temp)
 static uint32_t get_kpcr(void)
 {
 	uint32_t kpcr = 0, selfpcr = 0;
-	CPUState *env;
+	CPUArchState *env;
 
 	for (env = first_cpu; env != NULL; env = env->next_cpu) {
 		if (env->cpu_index == 0) {
@@ -553,7 +554,7 @@ static uint32_t get_kpcr(void)
 	return kpcr;
 }
 
-static void get_os_version(CPUState *env)
+static void get_os_version(CPUArchState *env)
 {
 	//TODO: We need to check how volatility determines the OS version.
 
@@ -573,7 +574,7 @@ static void get_os_version(CPUState *env)
 }
 
 
-static uint32_t get_ntoskrnl_internal(uint32_t curr_page, CPUState *env) {
+static uint32_t get_ntoskrnl_internal(uint32_t curr_page, CPUArchState *env) {
 	IMAGE_DOS_HEADER *DosHeader = NULL;
 
 	uint8_t page_data[4 * 1024] = { 0 }; //page_size
@@ -598,7 +599,7 @@ static uint32_t get_ntoskrnl_internal(uint32_t curr_page, CPUState *env) {
 	return 0;
 }
 
-uint32_t get_ntoskrnl(CPUState *_env) {
+uint32_t get_ntoskrnl(CPUArchState *_env) {
 	uint32_t ntoskrnl_base = 0;
 	ntoskrnl_base = get_ntoskrnl_internal(_env->sysenter_eip & 0xfffff000, _env);
 	if (ntoskrnl_base)
@@ -614,7 +615,7 @@ found:
 }
 
 /*FIXME: Supports only 32bit guest. */
-static uint32_t probe_windows(CPUState *_env)
+static uint32_t probe_windows(CPUArchState *_env)
 {
 	uint32_t base;
 
@@ -643,21 +644,21 @@ static uint32_t probe_windows(CPUState *_env)
 	return 0;
 }
 
-int find_win7sp0(CPUState *_env, uintptr_t insn_handle) {
+int find_win7sp0(CPUArchState *_env, uintptr_t insn_handle) {
 	probe_windows(_env);
 	if (GuestOS_index == 2 && rtflag == 1)
 		return 1;
 	else
 		return 0;
 }
-int find_win7sp1(CPUState *_env, uintptr_t insn_handle) {
+int find_win7sp1(CPUArchState *_env, uintptr_t insn_handle) {
 	probe_windows(_env);
 	if (GuestOS_index == 2 && rtflag == 1)
 		return 1;
 	else
 		return 0;
 }
-int find_winxpsp2(CPUState *_env, uintptr_t insn_handle) {
+int find_winxpsp2(CPUArchState *_env, uintptr_t insn_handle) {
 
 	probe_windows(_env);
 	if (GuestOS_index == 0 && rtflag == 1)
@@ -665,7 +666,7 @@ int find_winxpsp2(CPUState *_env, uintptr_t insn_handle) {
 	else
 		return 0;
 }
-int find_winxpsp3(CPUState *_env, uintptr_t insn_handle) {
+int find_winxpsp3(CPUArchState *_env, uintptr_t insn_handle) {
 	probe_windows(_env);
 	if (GuestOS_index == 1 && rtflag == 1)
 		return 1;
@@ -678,7 +679,7 @@ int find_winxpsp3(CPUState *_env, uintptr_t insn_handle) {
 void check_procexit(void *)
 {
 	/* AWH - cpu_single_env is invalid outside of the main exec thread */
-	CPUState *env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
+	CPUArchState *env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
 	qemu_mod_timer(recon_timer,
 			qemu_get_clock_ns(vm_clock) + get_ticks_per_sec() * 10);
 	//monitor_printf(default_mon, "Checking for proc exits...\n");

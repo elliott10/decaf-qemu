@@ -276,7 +276,7 @@ int VMI_get_guest_version_c(void)
 		return 2;//linux
 	return 0;//unknown
 }
-int VMI_get_current_tid_c(CPUState* _env)
+int VMI_get_current_tid_c(CPUArchState* _env)
 {
 #ifdef TARGET_I386
 	uint32_t val;

@@ -318,10 +318,10 @@ typedef struct os_handle {
 } os_handle;
 
 
-int find_win7sp0(CPUState *env,uintptr_t insn_handle);
-int find_win7sp1(CPUState *env,uintptr_t insn_handle);
-int find_winxpsp2(CPUState *env,uintptr_t insn_handle);
-int find_winxpsp3(CPUState *env,uintptr_t insn_handle);
+int find_win7sp0(CPUArchState *env,uintptr_t insn_handle);
+int find_win7sp1(CPUArchState *env,uintptr_t insn_handle);
+int find_winxpsp2(CPUArchState *env,uintptr_t insn_handle);
+int find_winxpsp3(CPUArchState *env,uintptr_t insn_handle);
 
 void win_vmi_init();
 

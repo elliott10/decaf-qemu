@@ -33,9 +33,10 @@ http://code.google.com/p/decaf-platform/
 #include "qemu-common.h"
 #include "cpu.h"
 //#include "taintcheck.h"
-#include "targphys.h"
+//#include "targphys.h"
+#include "hwaddr.h"
 #include "compiler.h"
-#include "monitor.h"
+#include "monitor/monitor.h"
 // AWH #include "shared/disasm.h"
 #include "shared/DECAF_callback.h"
 
@@ -206,10 +207,10 @@ extern void DECAF_register_insn_cb_range(uint32_t start_opcode, uint32_t end_opc
 ///  @param addr virtual memory address
 ///  @return page access status: -1 means not present, 0 means readonly,
 ///   and 1 means writable.
-extern int DECAF_get_page_access(CPUState* env, gva_t addr);
+extern int DECAF_get_page_access(CPUArchState* env, gva_t addr);
 
 /// Check if the current execution of guest system is in kernel mode (i.e., ring-0)
-static inline int DECAF_is_in_kernel(CPUState *_env)
+static inline int DECAF_is_in_kernel(CPUArchState *_env)
 {
   return ((_env->hflags & HF_CPL_MASK) == 0);
 }
@@ -362,17 +363,17 @@ static inline void DECAF_write_register(int reg_id, void *buf)
 #endif // AWH
 /* @} */ //end of group
 
-static inline gva_t DECAF_getPC(CPUState* env)
+static inline gva_t DECAF_getPC(CPUArchState* env)
 {
   return (env->eip + env->segs[R_CS].base);
 }
 
-static inline gpa_t DECAF_getPGD(CPUState* env)
+static inline gpa_t DECAF_getPGD(CPUArchState* env)
 {
   return (env->cr[3]);
 }
 
-static inline gva_t DECAF_getESP(CPUState* env)
+static inline gva_t DECAF_getESP(CPUArchState* env)
 {
   return (env->regs[R_ESP]);
 }

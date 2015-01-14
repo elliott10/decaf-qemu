@@ -63,7 +63,7 @@ mon_cmd_t DECAF_info_cmds[] = {
 static void convert_endian_4b(uint32_t *data);
 
 
-static gpa_t _DECAF_get_phys_addr(CPUState* env, gva_t addr) {
+static gpa_t _DECAF_get_phys_addr(CPUArchState* env, gva_t addr) {
 	int mmu_idx, index;
 	uint32_t phys_addr;
 
@@ -89,7 +89,7 @@ static gpa_t _DECAF_get_phys_addr(CPUState* env, gva_t addr) {
 	return (gpa_t) qemu_ram_addr_from_host_nofail(p);
 }
 
-gpa_t DECAF_get_phys_addr(CPUState* env, gva_t addr)
+gpa_t DECAF_get_phys_addr(CPUArchState* env, gva_t addr)
 {
 	gpa_t phys_addr;
 	if (env == NULL )
@@ -117,7 +117,7 @@ gpa_t DECAF_get_phys_addr(CPUState* env, gva_t addr)
 
 }
 
-DECAF_errno_t DECAF_memory_rw(CPUState* env, uint32_t addr, void *buf, int len,
+DECAF_errno_t DECAF_memory_rw(CPUArchState* env, uint32_t addr, void *buf, int len,
 		int is_write) {
 	int l;
 	target_ulong page, phys_addr;
@@ -154,7 +154,7 @@ DECAF_errno_t DECAF_memory_rw(CPUState* env, uint32_t addr, void *buf, int len,
 	return ret;
 }
 
-DECAF_errno_t DECAF_memory_rw_with_pgd(CPUState* env, target_ulong pgd,
+DECAF_errno_t DECAF_memory_rw_with_pgd(CPUArchState* env, target_ulong pgd,
 		gva_t addr, void *buf, int len, int is_write) {
 	if (env == NULL ) {
 #ifdef DECAF_NO_FAIL_SAFE
@@ -184,35 +184,36 @@ DECAF_errno_t DECAF_memory_rw_with_pgd(CPUState* env, target_ulong pgd,
 	return 0;
 }
 
-DECAF_errno_t DECAF_read_mem(CPUState* env, gva_t vaddr, int len, void *buf) {
+DECAF_errno_t DECAF_read_mem(CPUArchState* env, gva_t vaddr, int len, void *buf) {
 	return DECAF_memory_rw(env, vaddr, buf, len, 0);
 }
 
-DECAF_errno_t DECAF_write_mem(CPUState* env, gva_t vaddr, int len, void *buf) {
+DECAF_errno_t DECAF_write_mem(CPUArchState* env, gva_t vaddr, int len, void *buf) {
 	return DECAF_memory_rw(env, vaddr, buf, len, 1);
 }
 
-DECAF_errno_t DECAF_read_mem_with_pgd(CPUState* env, target_ulong cr3,
+DECAF_errno_t DECAF_read_mem_with_pgd(CPUArchState* env, target_ulong cr3,
 		gva_t vaddr, int len, void *buf) {
 	return DECAF_memory_rw_with_pgd(env, cr3, vaddr, buf, len, 0);
 }
 
-DECAF_errno_t DECAF_write_mem_with_pgd(CPUState* env, target_ulong cr3,
+DECAF_errno_t DECAF_write_mem_with_pgd(CPUArchState* env, target_ulong cr3,
 		gva_t vaddr, int len, void *buf) {
 	return DECAF_memory_rw_with_pgd(env, cr3, vaddr, buf, len, 1);
 }
 
 //Modified from tb_find_slow
-static TranslationBlock *DECAF_tb_find_slow(CPUState *env, target_ulong pc) {
+static TranslationBlock *DECAF_tb_find_slow(CPUArchState *env, target_ulong pc) {
 	TranslationBlock *tb, **ptb1;
 	unsigned int h;
 
-	tb_invalidated_flag = 0;
+	//tb_invalidated_flag = 0;
+	tcg_ctx.tb_ctx.tb_invalidated_flag = 0;
 
 //DECAF_printf("DECAF_tb_find_slow: phys_pc=%08x\n", phys_pc);
 
 	for (h = 0; h < CODE_GEN_PHYS_HASH_SIZE; h++) {
-		ptb1 = &tb_phys_hash[h];
+		ptb1 = &tcg_ctx.tb_ctx.tb_phys_hash[h];
 		for (;;) {
 			tb = *ptb1;
 			if (!tb)
@@ -233,7 +234,7 @@ static TranslationBlock *DECAF_tb_find_slow(CPUState *env, target_ulong pc) {
 }
 
 // This is the same as tb_find_fast except we invalidate at the end
-void DECAF_flushTranslationBlock_env(CPUState *env, uint32_t addr) {
+void DECAF_flushTranslationBlock_env(CPUArchState *env, uint32_t addr) {
 	TranslationBlock *tb;
 
 	if (env == NULL ) {
@@ -255,7 +256,7 @@ void DECAF_flushTranslationBlock_env(CPUState *env, uint32_t addr) {
 	tb_phys_invalidate(tb, -1);
 }
 
-void DECAF_flushTranslationPage_env(CPUState* env, uint32_t addr)
+void DECAF_flushTranslationPage_env(CPUArchState* env, uint32_t addr)
 {
 	if (env == NULL ) {
 #ifdef DECAF_NO_FAIL_SAFE
@@ -622,7 +623,7 @@ void DECAF_keystroke_read(uint8_t taint_status) {
 }
 
 
-DECAF_errno_t DECAF_read_ptr(CPUState* env, gva_t vaddr, gva_t *pptr)
+DECAF_errno_t DECAF_read_ptr(CPUArchState* env, gva_t vaddr, gva_t *pptr)
 {
 	int ret = DECAF_read_mem(env, vaddr, sizeof(gva_t), pptr);
 	if(0 == ret)

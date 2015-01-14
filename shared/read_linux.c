@@ -141,7 +141,7 @@ target_ulong get_vmend(target_ulong addr)
 
 void get_mod_name(target_ulong addr, char *name, int size)
 {
-  //LOK: Need to update this to use CPUState* env
+  //LOK: Need to update this to use CPUArchState* env
   target_ulong vmfile, dentry;
   if (DECAF_memory_rw(NULL, addr + vmfileoffset, &vmfile, sizeof(vmfile), 0) == -1
       || DECAF_memory_rw(NULL, vmfile + dentryoffset, &dentry, sizeof(dentry),

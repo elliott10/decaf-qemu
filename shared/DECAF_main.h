@@ -97,7 +97,7 @@ void DECAF_start_vm(void);
  *************************************************************************/
 
 /****** Functions used by DECAF plugins ****/
-extern void DECAF_physical_memory_rw(CPUState* env, gpa_t addr, uint8_t *buf,
+extern void DECAF_physical_memory_rw(CPUArchState* env, gpa_t addr, uint8_t *buf,
                             int len, int is_write);
 
 #define DECAF_physical_memory_read(_env, addr, buf, len) \
@@ -107,20 +107,20 @@ extern void DECAF_physical_memory_rw(CPUState* env, gpa_t addr, uint8_t *buf,
         DECAF_physical_memory_rw(_env, addr, buf, len, 1)
 
 /// Convert virtual address into physical address
-extern gpa_t DECAF_get_phys_addr(CPUState* env, gva_t addr);
+extern gpa_t DECAF_get_phys_addr(CPUArchState* env, gva_t addr);
 
 /// Convert virtual address into physical address for given cr3 - cr3 is a phys addr
 //The implementation is target-specific
-//extern gpa_t DECAF_get_physaddr_with_cr3(CPUState* env, target_ulong cr3, gva_t addr);
+//extern gpa_t DECAF_get_physaddr_with_cr3(CPUArchState* env, target_ulong cr3, gva_t addr);
 
-extern gpa_t DECAF_get_phys_addr_with_pgd(CPUState* env, gpa_t pgd, gva_t addr);
+extern gpa_t DECAF_get_phys_addr_with_pgd(CPUArchState* env, gpa_t pgd, gva_t addr);
 
 //wrapper -- pgd is the generic term while cr3 is the register in x86
 #define  DECAF_get_physaddr_with_cr3(_env, _pgd, _addr) DECAF_get_phys_addr_with_pgd(_env, _pgd, _addr)
 
-extern DECAF_errno_t DECAF_memory_rw(CPUState* env, gva_t addr, void *buf, int len, int is_write);
+extern DECAF_errno_t DECAF_memory_rw(CPUArchState* env, gva_t addr, void *buf, int len, int is_write);
 
-DECAF_errno_t DECAF_memory_rw_with_pgd(CPUState* env, target_ulong pgd, gva_t addr, void *buf,
+DECAF_errno_t DECAF_memory_rw_with_pgd(CPUArchState* env, target_ulong pgd, gva_t addr, void *buf,
                             int len, int is_write);
 
 /// \brief Read from a memory region by its virtual address.
@@ -132,7 +132,7 @@ DECAF_errno_t DECAF_memory_rw_with_pgd(CPUState* env, target_ulong pgd, gva_t ad
 ///
 /// If failure, it usually means that the given virtual address cannot be converted
 /// into physical address. It could be either invalid address or swapped out.
-extern DECAF_errno_t DECAF_read_mem(CPUState* env, gva_t vaddr, int len, void *buf);
+extern DECAF_errno_t DECAF_read_mem(CPUArchState* env, gva_t vaddr, int len, void *buf);
 
 /// \brief Write into a memory region by its virtual address.
 ///
@@ -143,12 +143,12 @@ extern DECAF_errno_t DECAF_read_mem(CPUState* env, gva_t vaddr, int len, void *b
 ///
 /// If failure, it usually means that the given virtual address cannot be converted
 /// into physical address. It could be either invalid address or swapped out.
-extern DECAF_errno_t DECAF_write_mem(CPUState* env, gva_t vaddr, int len, void *buf);
+extern DECAF_errno_t DECAF_write_mem(CPUArchState* env, gva_t vaddr, int len, void *buf);
 
 
-extern DECAF_errno_t DECAF_read_mem_with_pgd(CPUState* env, target_ulong pgd, gva_t vaddr, int len, void *buf);
-extern DECAF_errno_t DECAF_write_mem_with_pgd(CPUState* env, target_ulong pgd, gva_t vaddr, int len, void *buf);
-DECAF_errno_t DECAF_read_ptr(CPUState *env, gva_t vaddr, gva_t *pptr);
+extern DECAF_errno_t DECAF_read_mem_with_pgd(CPUArchState* env, target_ulong pgd, gva_t vaddr, int len, void *buf);
+extern DECAF_errno_t DECAF_write_mem_with_pgd(CPUArchState* env, target_ulong pgd, gva_t vaddr, int len, void *buf);
+DECAF_errno_t DECAF_read_ptr(CPUArchState *env, gva_t vaddr, gva_t *pptr);
 
 
 extern void * DECAF_KbdState;
@@ -180,7 +180,7 @@ extern int DECAF_emulation_started; //will be removed
 // vcpu and not only for specific ones. This idea can change in the future of course.
 // We have yet to decide how to handle multi-core analysis, at the program abstraction
 // level or at the thread execution level or at the virtual cpu core level?
-//No matter what the decision, flushing can occur using the CPUState as in QEMU
+//No matter what the decision, flushing can occur using the CPUArchState as in QEMU
 // or using DECAF's wrappers.
 
 /**
@@ -188,7 +188,7 @@ extern int DECAF_emulation_started; //will be removed
  * @param env The cpu context
  * @param addr The block's address
  */
-void DECAF_flushTranslationBlock_env(CPUState* env, gva_t addr);
+void DECAF_flushTranslationBlock_env(CPUArchState* env, gva_t addr);
 
 /**
  * Flush - or invalidate - all translation blocks for the page in addr.
@@ -199,7 +199,7 @@ void DECAF_flushTranslationBlock_env(CPUState* env, gva_t addr);
  * @param env The cpu context
  * @param addr The page address
  */
-void DECAF_flushTranslationPage_env(CPUState* env, gva_t addr);
+void DECAF_flushTranslationPage_env(CPUArchState* env, gva_t addr);
 
 //These are DECAF wrappers that does flushing for all VCPUs
 

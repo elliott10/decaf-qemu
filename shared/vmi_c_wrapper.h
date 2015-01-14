@@ -84,7 +84,7 @@ extern int VMI_get_loaded_modules_count_c(uint32_t pid);
 /// @return the current thread id. If for some reason, this operation
 /// is not successful, the return value is set to -1.
 /// This function only works in Windows XP for Now.
-extern int VMI_get_current_tid_c(CPUState* env);
+extern int VMI_get_current_tid_c(CPUArchState* env);
 
 
 

@@ -200,8 +200,11 @@ libdecaf.a: $(LIBDECAF)
 	$(AR) rcs $@ $(LIBDECAF)
 
 # build either PROG or PROGW
-$(QEMU_PROG_BUILD): $(all-obj-y) ../libqemuutil.a ../libqemustub.a
+$(QEMU_PROG_BUILD): $(all-obj-y) ../libqemuutil.a ../libqemustub.a ./libdecaf.a
 	$(call LINK,$^)
+
+test_for_decaf:
+	@echo $(all-obj-y)
 
 gdbstub-xml.c: $(TARGET_XML_FILES) $(SRC_PATH)/scripts/feature_to_c.sh
 	$(call quiet-command,rm -f $@ && $(SHELL) $(SRC_PATH)/scripts/feature_to_c.sh $@ $(TARGET_XML_FILES),"  GEN   $(TARGET_DIR)$@")

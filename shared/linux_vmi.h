@@ -36,9 +36,9 @@ extern "C" {
 
 #define SIZEOF_COMM 16
 
-int find_linux(CPUState *env, uintptr_t insn_handle);
+int find_linux(CPUArchState *env, uintptr_t insn_handle);
 void linux_vmi_init();
-gpa_t mips_get_cur_pgd(CPUState *env);
+gpa_t mips_get_cur_pgd(CPUArchState *env);
 
 #ifdef __cplusplus
 };

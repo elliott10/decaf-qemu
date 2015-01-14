@@ -32,7 +32,7 @@ extern "C" {
 
 #ifdef CONFIG_TCG_TAINT
 
-//static inline uint64_t taintcheck_register_check(int regid,int offset,int size,CPUState *env){
+//static inline uint64_t taintcheck_register_check(int regid,int offset,int size,CPUArchState *env){
 static inline uint64_t taintcheck_register_check(int regid,int offset,int size,CPUArchState *env){
 	int off = offset*8;
 #if defined(TARGET_MIPS)

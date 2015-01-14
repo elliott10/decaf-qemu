@@ -15,7 +15,7 @@
 #include <tr1/unordered_map>
 #include <tr1/unordered_set>
 #include "vmi_callback.h"
-#include "monitor.h"
+#include "monitor/monitor.h"
 
 //#ifdef CONFIG_VMI_ENABLE
 using namespace std;
@@ -64,7 +64,7 @@ typedef enum {
 
 typedef struct os_handle_c{
 	GUEST_OS_C os_info;
-	int (*find)(CPUState *env,uintptr_t insn_handle);
+	int (*find)(CPUArchState *env,uintptr_t insn_handle);
 	void (*init)();
 } os_handle_c;
 

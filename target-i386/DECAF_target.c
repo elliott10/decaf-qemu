@@ -55,7 +55,7 @@ int insn_tainted = 0;		//Indicates if the current instruction is tainted
 int plugin_taint_record_size = 0;
 #endif
 
-// AWH extern CPUState *first_cpu;
+// AWH extern CPUArchState *first_cpu;
 
 #if 0
 /*
@@ -63,8 +63,8 @@ int plugin_taint_record_size = 0;
  */
 void DECAF_update_cpustate(void)
 {
-    static CPUState *last_env = 0;
-    CPUState *cur_env = cpu_single_env ? cpu_single_env : first_cpu;
+    static CPUArchState *last_env = 0;
+    CPUArchState *cur_env = cpu_single_env ? cpu_single_env : first_cpu;
     if (last_env != cur_env) {
 	last_env = cur_env;
 	DECAF_cpu_regs = cur_env->regs;
@@ -108,7 +108,7 @@ void DECAF_update_cpl(int cpl)
 #endif
 
 
-gpa_t DECAF_get_phys_addr_with_pgd(CPUState* env, gpa_t pgd, gva_t addr)
+gpa_t DECAF_get_phys_addr_with_pgd(CPUArchState* env, gpa_t pgd, gva_t addr)
 {
 
   if (env == NULL)
@@ -150,7 +150,7 @@ void DECAF_after_iret_protected(void)
 }
 #endif
 
-int DECAF_get_page_access(CPUState* env, uint32_t addr)
+int DECAF_get_page_access(CPUArchState* env, uint32_t addr)
 {
     uint32_t pde_addr, pte_addr;
     uint32_t pde, pte;

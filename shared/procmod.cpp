@@ -64,7 +64,7 @@ void handle_guest_message(const char *message)
 
 //FIXME: this function may potentially overflow "buf" --Heng
 static inline int readustr_with_cr3(uint32_t addr, uint32_t cr3, void *buf,
-    CPUState *_env) {
+    CPUArchState *_env) {
   uint32_t unicode_data[2];
   int i, j, unicode_len = 0;
   uint8_t unicode_str[MAX_UNICODE_LENGTH] = { '\0' };
@@ -118,7 +118,7 @@ int is_fullname_retrieved(process *proc)
 
 }
 
-int update_kernel_modules(CPUState * _env, gva_t vaddr)
+int update_kernel_modules(CPUArchState * _env, gva_t vaddr)
 {
   return 0;
 

@@ -39,7 +39,7 @@ int DECAF_is_BlockEndCallback_needed(gva_t from, gva_t to);
 
 //This is needed since tlb_exec_cb doesn't go into tb and therefore not in helper.h
 #ifdef CONFIG_VMI_ENABLE
-void DECAF_invoke_tlb_exec_callback(CPUState *env, gva_t vaddr);
+void DECAF_invoke_tlb_exec_callback(CPUArchState *env, gva_t vaddr);
 #endif
 
 void helper_DECAF_invoke_nic_rec_callback(const uint8_t * buf, int size, int cur_pos, int start, int stop);
@@ -56,10 +56,10 @@ void helper_DECAF_invoke_block_trans_callback(const struct TranslationBlock *tb,
 #endif /* CONFIG_TCG_LLVM */
 //The following prototypes are not needed since they are defined in
 // helper.h
-//void helper_DECAF_invoke_block_begin_callback(CPUState* env, TranslationBlock* tb);
-//void helper_DECAF_invoke_block_end_callback(CPUState* env, TranslationBlock* tb, gva_t from);
-//void helper_DECAF_invoke_insn_begin_callback(CPUState* env);
-//void helper_DECAF_invoke_insn_begin_callback(CPUState* env);
+//void helper_DECAF_invoke_block_begin_callback(CPUArchState* env, TranslationBlock* tb);
+//void helper_DECAF_invoke_block_end_callback(CPUArchState* env, TranslationBlock* tb, gva_t from);
+//void helper_DECAF_invoke_insn_begin_callback(CPUArchState* env);
+//void helper_DECAF_invoke_insn_begin_callback(CPUArchState* env);
 
 #ifdef __cplusplus
 }

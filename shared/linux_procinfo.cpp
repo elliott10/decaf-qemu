@@ -232,19 +232,19 @@ inline int isStructKernelAddress(gva_t addr, target_ulong structSize)
   return ( isKernelAddress(addr) && isKernelAddress(addr + structSize) );
 }
 
-target_ulong getESP(CPUState *env)
+target_ulong getESP(CPUArchState *env)
 {
   return DECAF_getESP(env);
 }
 
-gpa_t getPGD(CPUState *env)
+gpa_t getPGD(CPUArchState *env)
 {
   return (DECAF_getPGD(env) & TARGET_PGD_MASK);
 }
 
 //We will have to replace this function with another one - such as
 // read_mem in DECAF
-static inline target_ulong get_target_ulong_at(CPUState *env, gva_t addr)
+static inline target_ulong get_target_ulong_at(CPUArchState *env, gva_t addr)
 {
   target_ulong val;
   if (DECAF_read_mem(env, addr, sizeof(target_ulong), &val) < 0)
@@ -252,7 +252,7 @@ static inline target_ulong get_target_ulong_at(CPUState *env, gva_t addr)
   return val;
 }
 
-static inline target_uint get_uint32_at(CPUState *env, gva_t addr)
+static inline target_uint get_uint32_at(CPUArchState *env, gva_t addr)
 {
   target_uint val;
   if (DECAF_read_mem(env, addr, sizeof(uint32_t), &val) < 0)
@@ -261,7 +261,7 @@ static inline target_uint get_uint32_at(CPUState *env, gva_t addr)
 }
 
 //Dangerous memcpy
-static inline int get_mem_at(CPUState *env, gva_t addr, void* buf, size_t count)
+static inline int get_mem_at(CPUArchState *env, gva_t addr, void* buf, size_t count)
 {
   return DECAF_read_mem(env, addr, count, buf) < 0 ? 0 : count;
 }
@@ -270,8 +270,8 @@ static inline int get_mem_at(CPUState *env, gva_t addr, void* buf, size_t count)
 //The idea is to go through the data structures and find an
 // item that points back to the threadinfo
 //ASSUMES PTR byte aligned
-// gva_t findTaskStructFromThreadInfo(CPUState * env, gva_t threadinfo, ProcInfo* pPI, int bDoubleCheck) __attribute__((optimize("O0")));
-gva_t  findTaskStructFromThreadInfo(CPUState * env, gva_t threadinfo, ProcInfo* pPI, int bDoubleCheck)
+// gva_t findTaskStructFromThreadInfo(CPUArchState * env, gva_t threadinfo, ProcInfo* pPI, int bDoubleCheck) __attribute__((optimize("O0")));
+gva_t  findTaskStructFromThreadInfo(CPUArchState * env, gva_t threadinfo, ProcInfo* pPI, int bDoubleCheck)
 {
   int bFound = 0;
   target_ulong i = 0;
@@ -332,7 +332,7 @@ gva_t  findTaskStructFromThreadInfo(CPUState * env, gva_t threadinfo, ProcInfo* 
   return (ret);
 }
 
-gpa_t findPGDFromMMStruct(CPUState * env, gva_t mm, ProcInfo* pPI, int bDoubleCheck)
+gpa_t findPGDFromMMStruct(CPUArchState * env, gva_t mm, ProcInfo* pPI, int bDoubleCheck)
 {
   target_ulong i = 0;
   gpa_t temp = 0;
@@ -364,7 +364,7 @@ gpa_t findPGDFromMMStruct(CPUState * env, gva_t mm, ProcInfo* pPI, int bDoubleCh
   return (INV_ADDR);
 }
 
-gva_t findMMStructFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI, int bDoubleCheck)
+gva_t findMMStructFromTaskStruct(CPUArchState * env, gva_t ts, ProcInfo* pPI, int bDoubleCheck)
 {  
   if (pPI == NULL)
   {
@@ -411,7 +411,7 @@ gva_t findMMStructFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI, int bD
 // furthermore, next->previous should be equal to self
 // same with previous->next
 //lh is the list_head (or supposedly list head)
-int isListHead(CPUState * env, gva_t lh)
+int isListHead(CPUArchState * env, gva_t lh)
 {
   gva_t pPrev = lh + sizeof(target_ulong);
   gva_t next = 0;
@@ -459,7 +459,7 @@ int isListHead(CPUState * env, gva_t lh)
 //So the idea is that we will see if we have a listhead followed by an int followed by 
 // 2 list heads followed by mm struct (basically we search backwards from mmstruct
 // if this pattern is found, then we should have the task struct offset
-gva_t findTaskStructListFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI, int bDoubleCheck)
+gva_t findTaskStructListFromTaskStruct(CPUArchState * env, gva_t ts, ProcInfo* pPI, int bDoubleCheck)
 {
   target_ulong i = 0;
   gva_t temp = 0;
@@ -538,7 +538,7 @@ gva_t findTaskStructListFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI, 
 // to previous and next if this ts was the address of a list_head
 // instead
 //TODO: Find another invariance instead of the tasks list?
-int isTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
+int isTaskStruct(CPUArchState * env, gva_t ts, ProcInfo* pPI)
 {
   gva_t temp = 0;
   gva_t temp2 = 0;
@@ -584,7 +584,7 @@ int isTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
 //NOTE: We can also use the follow on items which are
 // two list_heads for "children" and "sibling" as well 
 // as the final one which is a task_struct for "group_leader"
-gva_t findRealParentGroupLeaderFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
+gva_t findRealParentGroupLeaderFromTaskStruct(CPUArchState * env, gva_t ts, ProcInfo* pPI)
 {
   target_ulong i = 0;
   
@@ -619,7 +619,7 @@ gva_t findRealParentGroupLeaderFromTaskStruct(CPUState * env, gva_t ts, ProcInfo
 //The characteristics of the init_task that we use are
 //The mm struct pointer is NULL - since it shouldn't be scheduled?
 //The parent and real_parent is itself
-int isInitTask(CPUState * env, gva_t ts, ProcInfo* pPI, int bDoubleCheck)
+int isInitTask(CPUArchState * env, gva_t ts, ProcInfo* pPI, int bDoubleCheck)
 {
   int bMMCheck = 0;
   int bRPCheck = 0;
@@ -660,7 +660,7 @@ int isInitTask(CPUState * env, gva_t ts, ProcInfo* pPI, int bDoubleCheck)
 
 //To find the "comm" field, we look for the name of
 // init_task which is "swapper" -- we don't check for "swapper/0" or anything else
-gva_t findCommFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
+gva_t findCommFromTaskStruct(CPUArchState * env, gva_t ts, ProcInfo* pPI)
 {
   target_ulong i = 0;
   //char* temp = NULL; //not used yet, because we are using the int comparison instead
@@ -725,7 +725,7 @@ gva_t findCommFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
 // which happens to have the whole array of pid_link
 // pid_link consists of hlist, a basically another couple of pointers
 // and a pointer to a pid (which seems to be the same value)
-gva_t findThreadGroupFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
+gva_t findThreadGroupFromTaskStruct(CPUArchState * env, gva_t ts, ProcInfo* pPI)
 {
   target_ulong i = 0;
 
@@ -800,7 +800,7 @@ gva_t findThreadGroupFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
 // the cpu_timers
 // followed by real_cred and cred (both of which are pointers)
 // followed by stuff (in 2.6.32) and then comm
-gva_t findCredFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
+gva_t findCredFromTaskStruct(CPUArchState * env, gva_t ts, ProcInfo* pPI)
 {
   target_ulong i = 0;
   if ((pPI == NULL) || (pPI->ts_comm == INV_OFFSET) )
@@ -847,7 +847,7 @@ gva_t findCredFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
 // to be random - which is different from tgid and pid
 // both of which are small numbers - so we try it this
 // way
-gva_t findPIDFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
+gva_t findPIDFromTaskStruct(CPUArchState * env, gva_t ts, ProcInfo* pPI)
 {
   target_ulong offset = 0;
   target_ulong temp = 0;
@@ -922,7 +922,7 @@ gva_t findPIDFromTaskStruct(CPUState * env, gva_t ts, ProcInfo* pPI)
 // argstart, argend, envstart, envend (4)
 //Meaning we have a lot of fields with relative 
 // addresses in the same order as defined - except for brk
-int isStartCodeInMM(CPUState * env, target_ulong* temp, target_ulong expectedStackStart)
+int isStartCodeInMM(CPUArchState * env, target_ulong* temp, target_ulong expectedStackStart)
 {
   if (temp == NULL)
   {
@@ -959,7 +959,7 @@ int isStartCodeInMM(CPUState * env, target_ulong* temp, target_ulong expectedSta
 }
 
 #define MM_TEMP_BUF_SIZE 100
-int populate_mm_struct_offsets(CPUState * env, gva_t mm, ProcInfo* pPI)
+int populate_mm_struct_offsets(CPUArchState * env, gva_t mm, ProcInfo* pPI)
 {
   static bool isOffsetPopulated = false;
   if (isOffsetPopulated)
@@ -1048,7 +1048,7 @@ int populate_mm_struct_offsets(CPUState * env, gva_t mm, ProcInfo* pPI)
 //determines whether the address belongs to an RB Node
 // RB as in Red Black Tree - it should work for any tree really
 // maybe?
-int isRBNode(CPUState * env, gva_t vma)
+int isRBNode(CPUArchState * env, gva_t vma)
 {
   target_ulong parent = 0;
   target_ulong left = 0;
@@ -1112,7 +1112,7 @@ int isRBNode(CPUState * env, gva_t vma)
 // the vm area - it must be a userspace virtual address. This is a perfect
 // test to see which version of the kernel we are dealing with since
 // the mm_struct* would be a kernel address
-int populate_vm_area_struct_offsets(CPUState * env, gva_t vma, ProcInfo* pPI)
+int populate_vm_area_struct_offsets(CPUArchState * env, gva_t vma, ProcInfo* pPI)
 {
   static bool isOffsetPopulated = false;
   if (isOffsetPopulated)
@@ -1234,7 +1234,7 @@ int populate_vm_area_struct_offsets(CPUState * env, gva_t vma, ProcInfo* pPI)
 // one for rcu_head and another for the function pointer
 //then struct path is itself two pointers thus
 // its a constant - 3 pointers away
-int getDentryFromFile(CPUState * env, gva_t file, ProcInfo* pPI)
+int getDentryFromFile(CPUArchState * env, gva_t file, ProcInfo* pPI)
 {
   static bool isOffsetPopulated = false;
   if (isOffsetPopulated)
@@ -1267,7 +1267,7 @@ int getDentryFromFile(CPUState * env, gva_t file, ProcInfo* pPI)
 //Furthermore, we can also look for cred in a known to be root process
 // such as init.
 #define IS_UID(_x) (_x < 0x0000FFFF)
-int populate_cred_struct_offsets(CPUState * env, gva_t cred, ProcInfo* pPI)
+int populate_cred_struct_offsets(CPUArchState * env, gva_t cred, ProcInfo* pPI)
 {
   target_ulong i = sizeof(target_int);
 
@@ -1335,7 +1335,7 @@ int populate_cred_struct_offsets(CPUState * env, gva_t cred, ProcInfo* pPI)
 // and then look at the name for that dentry - that way
 // we can be sure that at least d_iname is defined - and can look
 // for the cstring there.
-int populate_dentry_struct_offsets(CPUState *env, gva_t dentry, ProcInfo* pPI)
+int populate_dentry_struct_offsets(CPUArchState *env, gva_t dentry, ProcInfo* pPI)
 {
   static bool isOffsetPopulated = false;
   if (isOffsetPopulated)
@@ -1417,7 +1417,7 @@ int populate_dentry_struct_offsets(CPUState *env, gva_t dentry, ProcInfo* pPI)
 //runs through the guest's memory and populates the offsets within the
 // ProcInfo data structure. Returns the number of elements/offsets found
 // or -1 if error
-int populate_kernel_offsets(CPUState *env, gva_t threadinfo, ProcInfo* pPI)
+int populate_kernel_offsets(CPUArchState *env, gva_t threadinfo, ProcInfo* pPI)
 {
   static bool isOffsetPopulated = false;
   //first we will try to get the threadinfo structure and etc
@@ -1750,7 +1750,7 @@ int find_match_section(const boost::property_tree::ptree &pt, target_ulong tulIn
 
 // infer init_task_addr, use the init_task_addr to search for the corresponding
 // section in procinfo.ini. If found, fill the fields in ProcInfo struct.
-int load_proc_info(CPUState * env, gva_t threadinfo, ProcInfo &pi)
+int load_proc_info(CPUArchState * env, gva_t threadinfo, ProcInfo &pi)
 {
   static bool bProcinfoMisconfigured = false;
   const int CANNOT_FIND_INIT_TASK_STRUCT = -1;
