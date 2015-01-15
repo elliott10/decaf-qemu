@@ -40,7 +40,7 @@ bool cpu_exists(int64_t id)
     return false;
 }
 
-CPUState *cpu_generic_init(const char *typename, const char *cpu_model)
+CPUState *cpu_generic_init(const char *typename_t, const char *cpu_model)
 {
     char *str, *name, *featurestr;
     CPUState *cpu;
@@ -51,7 +51,7 @@ CPUState *cpu_generic_init(const char *typename, const char *cpu_model)
     str = g_strdup(cpu_model);
     name = strtok(str, ",");
 
-    oc = cpu_class_by_name(typename, name);
+    oc = cpu_class_by_name(typename_t, name);
     if (oc == NULL) {
         g_free(str);
         return NULL;
@@ -257,9 +257,9 @@ static bool cpu_common_has_work(CPUState *cs)
     return false;
 }
 
-ObjectClass *cpu_class_by_name(const char *typename, const char *cpu_model)
+ObjectClass *cpu_class_by_name(const char *typename_t, const char *cpu_model)
 {
-    CPUClass *cc = CPU_CLASS(object_class_by_name(typename));
+    CPUClass *cc = CPU_CLASS(object_class_by_name(typename_t));
 
     return cc->class_by_name(cpu_model);
 }

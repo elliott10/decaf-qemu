@@ -728,18 +728,18 @@ static void bus_set_realized(Object *obj, bool value, Error **errp)
     bus->realized = value;
 }
 
-void qbus_create_inplace(void *bus, size_t size, const char *typename,
+void qbus_create_inplace(void *bus, size_t size, const char *typename_t,
                          DeviceState *parent, const char *name)
 {
-    object_initialize(bus, size, typename);
+    object_initialize(bus, size, typename_t);
     qbus_realize(bus, parent, name);
 }
 
-BusState *qbus_create(const char *typename, DeviceState *parent, const char *name)
+BusState *qbus_create(const char *typename_t, DeviceState *parent, const char *name)
 {
     BusState *bus;
 
-    bus = BUS(object_new(typename));
+    bus = BUS(object_new(typename_t));
     qbus_realize(bus, parent, name);
 
     return bus;

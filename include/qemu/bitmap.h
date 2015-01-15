@@ -98,7 +98,7 @@ int slow_bitmap_intersects(const unsigned long *bitmap1,
 static inline unsigned long *bitmap_try_new(long nbits)
 {
     long len = BITS_TO_LONGS(nbits) * sizeof(unsigned long);
-    return g_try_malloc0(len);
+    return (unsigned long *)g_try_malloc0(len);
 }
 
 static inline unsigned long *bitmap_new(long nbits)
@@ -239,10 +239,11 @@ unsigned long bitmap_find_next_zero_area(unsigned long *map,
 static inline unsigned long *bitmap_zero_extend(unsigned long *old,
                                                 long old_nbits, long new_nbits)
 {
+	//xly for decaf
     long new_len = BITS_TO_LONGS(new_nbits) * sizeof(unsigned long);
-    unsigned long *new = g_realloc(old, new_len);
-    bitmap_clear(new, old_nbits, new_nbits - old_nbits);
-    return new;
+    unsigned long *new_t = (unsigned long *)g_realloc(old, new_len);
+    bitmap_clear(new_t, old_nbits, new_nbits - old_nbits);
+    return new_t;
 }
 
 #ifdef __cplusplus

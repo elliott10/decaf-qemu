@@ -29,6 +29,11 @@
 #include "qemu/tls.h"
 #include "qemu/typedefs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
+
 typedef int (*WriteCoreDumpFunction)(const void *buf, size_t size,
                                      void *opaque);
 
@@ -180,9 +185,15 @@ typedef struct CPUBreakpoint {
 } CPUBreakpoint;
 
 typedef struct CPUWatchpoint {
+/*
     vaddr vaddr;
     vaddr len;
     vaddr hitaddr;
+    */
+    uint64_t vaddr;
+    uint64_t len;
+    uint64_t hitaddr;
+
     int flags; /* BP_* */
     QTAILQ_ENTRY(CPUWatchpoint) entry;
 } CPUWatchpoint;
@@ -445,7 +456,7 @@ void cpu_reset(CPUState *cpu);
  *
  * Returns: A #CPUClass or %NULL if not matching class is found.
  */
-ObjectClass *cpu_class_by_name(const char *typename, const char *cpu_model);
+ObjectClass *cpu_class_by_name(const char *typename_t, const char *cpu_model);
 
 /**
  * cpu_generic_init:
@@ -456,7 +467,7 @@ ObjectClass *cpu_class_by_name(const char *typename, const char *cpu_model);
  *
  * Returns: A #CPUState or %NULL if an error occurred.
  */
-CPUState *cpu_generic_init(const char *typename, const char *cpu_model);
+CPUState *cpu_generic_init(const char *typename_t, const char *cpu_model);
 
 /**
  * cpu_has_work:
@@ -676,5 +687,7 @@ extern const struct VMStateDescription vmstate_cpu_common;
     .flags = VMS_STRUCT,                                                    \
     .offset = 0,                                                            \
 }
-
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 #endif

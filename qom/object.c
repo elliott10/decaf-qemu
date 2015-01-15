@@ -337,16 +337,16 @@ void object_initialize_with_type(void *data, size_t size, TypeImpl *type)
     g_assert(size >= type->instance_size);
 
     memset(obj, 0, type->instance_size);
-    obj->class = type->class;
+    obj->class_t = type->class;
     object_ref(obj);
     QTAILQ_INIT(&obj->properties);
     object_init_with_type(obj, type);
     object_post_init_with_type(obj, type);
 }
 
-void object_initialize(void *data, size_t size, const char *typename)
+void object_initialize(void *data, size_t size, const char *typename_t)
 {
-    TypeImpl *type = type_get_by_name(typename);
+    TypeImpl *type = type_get_by_name(typename_t);
 
     object_initialize_with_type(data, size, type);
 }
@@ -407,7 +407,7 @@ static void object_deinit(Object *obj, TypeImpl *type)
 static void object_finalize(void *data)
 {
     Object *obj = data;
-    TypeImpl *ti = obj->class->type;
+    TypeImpl *ti = obj->class_t->type;
 
     object_property_del_all(obj);
     object_deinit(obj, ti);
@@ -432,43 +432,43 @@ Object *object_new_with_type(Type type)
     return obj;
 }
 
-Object *object_new(const char *typename)
+Object *object_new(const char *typename_t)
 {
-    TypeImpl *ti = type_get_by_name(typename);
+    TypeImpl *ti = type_get_by_name(typename_t);
 
     return object_new_with_type(ti);
 }
 
-Object *object_dynamic_cast(Object *obj, const char *typename)
+Object *object_dynamic_cast(Object *obj, const char *typename_t)
 {
-    if (obj && object_class_dynamic_cast(object_get_class(obj), typename)) {
+    if (obj && object_class_dynamic_cast(object_get_class(obj), typename_t)) {
         return obj;
     }
 
     return NULL;
 }
 
-Object *object_dynamic_cast_assert(Object *obj, const char *typename,
+Object *object_dynamic_cast_assert(Object *obj, const char *typename_t,
                                    const char *file, int line, const char *func)
 {
-    trace_object_dynamic_cast_assert(obj ? obj->class->type->name : "(null)",
-                                     typename, file, line, func);
+    trace_object_dynamic_cast_assert(obj ? obj->class_t->type->name : "(null)",
+                                     typename_t, file, line, func);
 
 #ifdef CONFIG_QOM_CAST_DEBUG
     int i;
     Object *inst;
 
     for (i = 0; obj && i < OBJECT_CLASS_CAST_CACHE; i++) {
-        if (obj->class->object_cast_cache[i] == typename) {
+        if (obj->class_t->object_cast_cache[i] == typename_t) {
             goto out;
         }
     }
 
-    inst = object_dynamic_cast(obj, typename);
+    inst = object_dynamic_cast(obj, typename_t);
 
     if (!inst && obj) {
         fprintf(stderr, "%s:%d:%s: Object %p is not an instance of type %s\n",
-                file, line, func, obj, typename);
+                file, line, func, obj, typename_t);
         abort();
     }
 
@@ -476,10 +476,10 @@ Object *object_dynamic_cast_assert(Object *obj, const char *typename,
 
     if (obj && obj == inst) {
         for (i = 1; i < OBJECT_CLASS_CAST_CACHE; i++) {
-            obj->class->object_cast_cache[i - 1] =
-                    obj->class->object_cast_cache[i];
+            obj->class_t->object_cast_cache[i - 1] =
+                    obj->class_t->object_cast_cache[i];
         }
-        obj->class->object_cast_cache[i - 1] = typename;
+        obj->class_t->object_cast_cache[i - 1] = typename_t;
     }
 
 out:
@@ -488,7 +488,7 @@ out:
 }
 
 ObjectClass *object_class_dynamic_cast(ObjectClass *class,
-                                       const char *typename)
+                                       const char *typename_t)
 {
     ObjectClass *ret = NULL;
     TypeImpl *target_type;
@@ -500,11 +500,11 @@ ObjectClass *object_class_dynamic_cast(ObjectClass *class,
 
     /* A simple fast path that can trigger a lot for leaf classes.  */
     type = class->type;
-    if (type->name == typename) {
+    if (type->name == typename_t) {
         return class;
     }
 
-    target_type = type_get_by_name(typename);
+    target_type = type_get_by_name(typename_t);
     if (!target_type) {
         /* target class type unknown, so fail the cast */
         return NULL;
@@ -536,20 +536,20 @@ ObjectClass *object_class_dynamic_cast(ObjectClass *class,
 }
 
 ObjectClass *object_class_dynamic_cast_assert(ObjectClass *class,
-                                              const char *typename,
+                                              const char *typename_t,
                                               const char *file, int line,
                                               const char *func)
 {
     ObjectClass *ret;
 
     trace_object_class_dynamic_cast_assert(class ? class->type->name : "(null)",
-                                           typename, file, line, func);
+                                           typename_t, file, line, func);
 
 #ifdef CONFIG_QOM_CAST_DEBUG
     int i;
 
     for (i = 0; class && i < OBJECT_CLASS_CAST_CACHE; i++) {
-        if (class->class_cast_cache[i] == typename) {
+        if (class->class_cast_cache[i] == typename_t) {
             ret = class;
             goto out;
         }
@@ -560,10 +560,10 @@ ObjectClass *object_class_dynamic_cast_assert(ObjectClass *class,
     }
 #endif
 
-    ret = object_class_dynamic_cast(class, typename);
+    ret = object_class_dynamic_cast(class, typename_t);
     if (!ret && class) {
         fprintf(stderr, "%s:%d:%s: Object %p is not an instance of type %s\n",
-                file, line, func, class, typename);
+                file, line, func, class, typename_t);
         abort();
     }
 
@@ -572,7 +572,7 @@ ObjectClass *object_class_dynamic_cast_assert(ObjectClass *class,
         for (i = 1; i < OBJECT_CLASS_CAST_CACHE; i++) {
             class->class_cast_cache[i - 1] = class->class_cast_cache[i];
         }
-        class->class_cast_cache[i - 1] = typename;
+        class->class_cast_cache[i - 1] = typename_t;
     }
 out:
 #endif
@@ -581,12 +581,12 @@ out:
 
 const char *object_get_typename(Object *obj)
 {
-    return obj->class->type->name;
+    return obj->class_t->type->name;
 }
 
 ObjectClass *object_get_class(Object *obj)
 {
-    return obj->class;
+    return obj->class_t;
 }
 
 bool object_class_is_abstract(ObjectClass *klass)
@@ -599,9 +599,9 @@ const char *object_class_get_name(ObjectClass *klass)
     return klass->type->name;
 }
 
-ObjectClass *object_class_by_name(const char *typename)
+ObjectClass *object_class_by_name(const char *typename_t)
 {
-    TypeImpl *type = type_get_by_name(typename);
+    TypeImpl *type = type_get_by_name(typename_t);
 
     if (!type) {
         return NULL;
@@ -1075,8 +1075,8 @@ static void object_finalize_child_property(Object *obj, const char *name,
 {
     Object *child = opaque;
 
-    if (child->class->unparent) {
-        (child->class->unparent)(child);
+    if (child->class_t->unparent) {
+        (child->class_t->unparent)(child);
     }
     child->parent = NULL;
     object_unref(child);
@@ -1330,17 +1330,17 @@ Object *object_resolve_path_component(Object *parent, const gchar *part)
 
 static Object *object_resolve_abs_path(Object *parent,
                                           gchar **parts,
-                                          const char *typename,
+                                          const char *typename_t,
                                           int index)
 {
     Object *child;
 
     if (parts[index] == NULL) {
-        return object_dynamic_cast(parent, typename);
+        return object_dynamic_cast(parent, typename_t);
     }
 
     if (strcmp(parts[index], "") == 0) {
-        return object_resolve_abs_path(parent, parts, typename, index + 1);
+        return object_resolve_abs_path(parent, parts, typename_t, index + 1);
     }
 
     child = object_resolve_path_component(parent, parts[index]);
@@ -1348,18 +1348,18 @@ static Object *object_resolve_abs_path(Object *parent,
         return NULL;
     }
 
-    return object_resolve_abs_path(child, parts, typename, index + 1);
+    return object_resolve_abs_path(child, parts, typename_t, index + 1);
 }
 
 static Object *object_resolve_partial_path(Object *parent,
                                               gchar **parts,
-                                              const char *typename,
+                                              const char *typename_t,
                                               bool *ambiguous)
 {
     Object *obj;
     ObjectProperty *prop;
 
-    obj = object_resolve_abs_path(parent, parts, typename, 0);
+    obj = object_resolve_abs_path(parent, parts, typename_t, 0);
 
     QTAILQ_FOREACH(prop, &parent->properties, node) {
         Object *found;
@@ -1369,7 +1369,7 @@ static Object *object_resolve_partial_path(Object *parent,
         }
 
         found = object_resolve_partial_path(prop->opaque, parts,
-                                            typename, ambiguous);
+                                            typename_t, ambiguous);
         if (found) {
             if (obj) {
                 if (ambiguous) {
@@ -1388,7 +1388,7 @@ static Object *object_resolve_partial_path(Object *parent,
     return obj;
 }
 
-Object *object_resolve_path_type(const char *path, const char *typename,
+Object *object_resolve_path_type(const char *path, const char *typename_t,
                                  bool *ambiguous)
 {
     Object *obj;
@@ -1402,9 +1402,9 @@ Object *object_resolve_path_type(const char *path, const char *typename,
             *ambiguous = false;
         }
         obj = object_resolve_partial_path(object_get_root(), parts,
-                                          typename, ambiguous);
+                                          typename_t, ambiguous);
     } else {
-        obj = object_resolve_abs_path(object_get_root(), parts, typename, 1);
+        obj = object_resolve_abs_path(object_get_root(), parts, typename_t, 1);
     }
 
     g_strfreev(parts);

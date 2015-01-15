@@ -20,6 +20,10 @@
 #include "qemu/queue.h"
 #include "qapi/error.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 struct Visitor;
 
 struct TypeImpl;
@@ -403,7 +407,7 @@ struct ObjectClass
 struct Object
 {
     /*< private >*/
-    ObjectClass *class;
+    ObjectClass *class_t;
     ObjectFree *free;
     QTAILQ_HEAD(, ObjectProperty) properties;
     uint32_t ref;
@@ -592,7 +596,7 @@ struct InterfaceClass
  *
  * Returns: The newly allocated and instantiated object.
  */
-Object *object_new(const char *typename);
+Object *object_new(const char *typename_t);
 
 /**
  * object_new_with_type:
@@ -628,7 +632,7 @@ void object_initialize_with_type(void *data, size_t size, Type type);
  * have already been allocated.  The returned object has a reference count of 1,
  * and will be finalized when the last reference is dropped.
  */
-void object_initialize(void *obj, size_t size, const char *typename);
+void object_initialize(void *obj, size_t size, const char *typename_t);
 
 /**
  * object_dynamic_cast:
@@ -640,7 +644,7 @@ void object_initialize(void *obj, size_t size, const char *typename);
  *
  * Returns: This function returns @obj on success or #NULL on failure.
  */
-Object *object_dynamic_cast(Object *obj, const char *typename);
+Object *object_dynamic_cast(Object *obj, const char *typename_t);
 
 /**
  * object_dynamic_cast_assert:
@@ -651,7 +655,7 @@ Object *object_dynamic_cast(Object *obj, const char *typename);
  * This function is not meant to be called directly, but only through
  * the wrapper macro OBJECT_CHECK.
  */
-Object *object_dynamic_cast_assert(Object *obj, const char *typename,
+Object *object_dynamic_cast_assert(Object *obj, const char *typename_t,
                                    const char *file, int line, const char *func);
 
 /**
@@ -704,7 +708,7 @@ Type type_register(const TypeInfo *info);
  * the wrapper macros OBJECT_CLASS_CHECK and INTERFACE_CHECK.
  */
 ObjectClass *object_class_dynamic_cast_assert(ObjectClass *klass,
-                                              const char *typename,
+                                              const char *typename_t,
                                               const char *file, int line,
                                               const char *func);
 
@@ -723,7 +727,7 @@ ObjectClass *object_class_dynamic_cast_assert(ObjectClass *klass,
  * it.  (FIXME: perhaps this can be detected at type definition time?)
  */
 ObjectClass *object_class_dynamic_cast(ObjectClass *klass,
-                                       const char *typename);
+                                       const char *typename_t);
 
 /**
  * object_class_get_parent:
@@ -755,7 +759,7 @@ bool object_class_is_abstract(ObjectClass *klass);
  *
  * Returns: The class for @typename or %NULL if not found.
  */
-ObjectClass *object_class_by_name(const char *typename);
+ObjectClass *object_class_by_name(const char *typename_t);
 
 void object_class_foreach(void (*fn)(ObjectClass *klass, void *opaque),
                           const char *implements_type, bool include_abstract,
@@ -1085,7 +1089,7 @@ Object *object_resolve_path(const char *path, bool *ambiguous);
  *
  * Returns: The matched object or NULL on path lookup failure.
  */
-Object *object_resolve_path_type(const char *path, const char *typename,
+Object *object_resolve_path_type(const char *path, const char *typename_t,
                                  bool *ambiguous);
 
 /**
@@ -1313,6 +1317,8 @@ int object_child_foreach(Object *obj, int (*fn)(Object *child, void *opaque),
  * Returns: the container object.
  */
 Object *container_get(Object *root, const char *path);
-
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif

@@ -188,7 +188,7 @@ extern int DECAF_emulation_started; //will be removed
  * @param env The cpu context
  * @param addr The block's address
  */
-void DECAF_flushTranslationBlock_env(CPUArchState* env, gva_t addr);
+void DECAF_flushTranslationBlock_env(CPUState* env, gva_t addr);
 
 /**
  * Flush - or invalidate - all translation blocks for the page in addr.
@@ -199,7 +199,7 @@ void DECAF_flushTranslationBlock_env(CPUArchState* env, gva_t addr);
  * @param env The cpu context
  * @param addr The page address
  */
-void DECAF_flushTranslationPage_env(CPUArchState* env, gva_t addr);
+void DECAF_flushTranslationPage_env(CPUState* env, gva_t addr);
 
 //These are DECAF wrappers that does flushing for all VCPUs
 
@@ -228,11 +228,12 @@ static inline void DECAF_flushTranslationPage(uint32_t addr)
 //Iterates through all virtual cpus and flushes the pages
 static inline void DECAF_flushTranslationCache(void)
 {
-  CPUState* env;
+  CPUArchState* env1;
+  CPUState *env = ENV_GET_CPU(env1);
   //for(env = first_cpu; env != NULL; env = env->next_cpu)
   CPU_FOREACH(env)
   {
-    tb_flush(env);
+    tb_flush(env1);
   }
 }
 

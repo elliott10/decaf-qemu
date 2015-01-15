@@ -24,6 +24,8 @@
 #include <dlfcn.h>
 #include "sysemu.h"
 
+#include "tcg/tcg.h"
+
 #include "shared/DECAF_main.h"
 #include "shared/DECAF_main_internal.h"
 #include "shared/DECAF_vm_compress.h"
@@ -40,6 +42,7 @@
 #ifdef CONFIG_VMI_ENABLE
 extern void VMI_init(void);
 #endif
+//extern TCGContext tcg_ctx;
 
 int DECAF_kvm_enabled = 0;
 
@@ -234,7 +237,7 @@ static TranslationBlock *DECAF_tb_find_slow(CPUArchState *env, target_ulong pc) 
 }
 
 // This is the same as tb_find_fast except we invalidate at the end
-void DECAF_flushTranslationBlock_env(CPUArchState *env, uint32_t addr) {
+void DECAF_flushTranslationBlock_env(CPUState *env, uint32_t addr) {
 	TranslationBlock *tb;
 
 	if (env == NULL ) {
@@ -256,7 +259,7 @@ void DECAF_flushTranslationBlock_env(CPUArchState *env, uint32_t addr) {
 	tb_phys_invalidate(tb, -1);
 }
 
-void DECAF_flushTranslationPage_env(CPUArchState* env, uint32_t addr)
+void DECAF_flushTranslationPage_env(CPUState* env, uint32_t addr)
 {
 	if (env == NULL ) {
 #ifdef DECAF_NO_FAIL_SAFE

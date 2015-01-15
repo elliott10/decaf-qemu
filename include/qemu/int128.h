@@ -38,9 +38,13 @@ static inline Int128 int128_2_64(void)
     return (Int128) { 0, 1 };
 }
 
+//xly for decaf
 static inline Int128 int128_exts64(int64_t a)
 {
-    return (Int128) { .lo = a, .hi = (a < 0) ? -1 : 0 };
+    Int128 r;
+    r.lo = a; 
+    r.hi = (a < 0) ? -1 : 0 ;
+    return r;
 }
 
 static inline Int128 int128_and(Int128 a, Int128 b)
