@@ -219,7 +219,8 @@ typedef enum {
 } GUEST_OS;
 
 typedef enum{
-	Type = 2, Directory = 3, SymbolicLink, Token, Job, Process, Thread, UserApcReserve, IoCompletionReserve, DebugObject,
+	//xly for decaf:Type --> Type_t
+	Type_t = 2, Directory = 3, SymbolicLink, Token, Job, Process, Thread, UserApcReserve, IoCompletionReserve, DebugObject,
 	Event, EventPair, Mutant, Callback, Semaphore, Timer, Profile, KeyedEvent, WindowStation, Desktop, TpWorkerFactory,
 	Adapter, Controller, Device, Driver,IoCompletion, File, TmTm, TmTx, TmRm, TmEn, Section, Session, Key, ALPCPort, PowerRequest,
 	WmiGuid, EtwRegistration, EtwConsumer, FilterConnectionPort, FilterCommunicationPort, PcwObject

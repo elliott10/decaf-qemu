@@ -200,12 +200,22 @@ DEF(qemu_ld_i64, DATA64_ARGS, TLADDR_ARGS, 2,
 DEF(qemu_st_i64, 0, TLADDR_ARGS + DATA64_ARGS, 2,
     TCG_OPF_CALL_CLOBBER | TCG_OPF_SIDE_EFFECTS | TCG_OPF_64BIT)
 
-
 #ifdef CONFIG_TCG_TAINT
 /* CONFIG_TCG_TAINT: For qemu_ld operations, the number of registers for
 output is doubled (since we're getting both data and taint data).
 For qemu_st operations, the number of registers for input is increased
 by the number of input data registers. */
+
+DEF(taint_qemu_ld_i32, 1, TLADDR_ARGS, 2,
+    TCG_OPF_CALL_CLOBBER | TCG_OPF_SIDE_EFFECTS)
+DEF(taint_qemu_st_i32, 0, TLADDR_ARGS + 1, 2,
+    TCG_OPF_CALL_CLOBBER | TCG_OPF_SIDE_EFFECTS)
+DEF(taint_qemu_ld_i64, DATA64_ARGS, TLADDR_ARGS, 2,
+    TCG_OPF_CALL_CLOBBER | TCG_OPF_SIDE_EFFECTS | TCG_OPF_64BIT)
+DEF(taint_qemu_st_i64, 0, TLADDR_ARGS + DATA64_ARGS, 2,
+    TCG_OPF_CALL_CLOBBER | TCG_OPF_SIDE_EFFECTS | TCG_OPF_64BIT)
+
+#if 0
 #if TCG_TARGET_REG_BITS == 32
 #if TARGET_LONG_BITS == 32
 DEF(taint_qemu_ld8u, 1, 1, 1, TCG_OPF_CALL_CLOBBER | TCG_OPF_SIDE_EFFECTS)
@@ -275,6 +285,7 @@ DEF(taint_qemu_st32, 0, 2, 1, TCG_OPF_CALL_CLOBBER | TCG_OPF_SIDE_EFFECTS)
 DEF(taint_qemu_st64, 0, 2, 1, TCG_OPF_CALL_CLOBBER | TCG_OPF_SIDE_EFFECTS)
 
 #endif /* TCG_TARGET_REG_BITS != 32 */
+#endif
 #endif /* CONFIG_TCG_TAINT */
 
 #undef TLADDR_ARGS

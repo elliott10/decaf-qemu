@@ -1015,6 +1015,73 @@ void tcg_gen_qemu_st_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
     *tcg_ctx.gen_opparam_ptr++ = idx;
 }
 
+#ifdef CONFIG_TCG_TAINT
+
+void tcg_gen_taint_qemu_ld_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGMemOp memop)
+{
+    memop = tcg_canonicalize_memop(memop, 0, 0);
+
+    *tcg_ctx.gen_opc_ptr++ = INDEX_op_taint_qemu_ld_i32;
+    tcg_add_param_i32(val);
+    tcg_add_param_tl(addr);
+    *tcg_ctx.gen_opparam_ptr++ = memop;
+    *tcg_ctx.gen_opparam_ptr++ = idx;
+}
+
+void tcg_gen_taint_qemu_st_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGMemOp memop)
+{
+    memop = tcg_canonicalize_memop(memop, 0, 1);
+
+    *tcg_ctx.gen_opc_ptr++ = INDEX_op_taint_qemu_st_i32;
+    tcg_add_param_i32(val);
+    tcg_add_param_tl(addr);
+    *tcg_ctx.gen_opparam_ptr++ = memop;
+    *tcg_ctx.gen_opparam_ptr++ = idx;
+}
+
+void tcg_gen_taint_qemu_ld_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
+{
+    memop = tcg_canonicalize_memop(memop, 1, 0);
+
+#if TCG_TARGET_REG_BITS == 32
+    if ((memop & MO_SIZE) < MO_64) {
+        tcg_gen_taint_qemu_ld_i32(TCGV_LOW(val), addr, idx, memop);
+        if (memop & MO_SIGN) {
+            tcg_gen_sari_i32(TCGV_HIGH(val), TCGV_LOW(val), 31);
+        } else {
+            tcg_gen_movi_i32(TCGV_HIGH(val), 0);
+        }
+        return;
+    }
+#endif
+
+    *tcg_ctx.gen_opc_ptr++ = INDEX_op_taint_qemu_ld_i64;
+    tcg_add_param_i64(val);
+    tcg_add_param_tl(addr);
+    *tcg_ctx.gen_opparam_ptr++ = memop;
+    *tcg_ctx.gen_opparam_ptr++ = idx;
+}
+
+void tcg_gen_taint_qemu_st_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGMemOp memop)
+{
+    memop = tcg_canonicalize_memop(memop, 1, 1);
+
+#if TCG_TARGET_REG_BITS == 32
+    if ((memop & MO_SIZE) < MO_64) {
+        tcg_gen_taint_qemu_st_i32(TCGV_LOW(val), addr, idx, memop);
+        return;
+    }
+#endif
+
+    *tcg_ctx.gen_opc_ptr++ = INDEX_op_taint_qemu_st_i64;
+    tcg_add_param_i64(val);
+    tcg_add_param_tl(addr);
+    *tcg_ctx.gen_opparam_ptr++ = memop;
+    *tcg_ctx.gen_opparam_ptr++ = idx;
+}
+
+#endif
+
 static void tcg_reg_alloc_start(TCGContext *s)
 {
     int i;

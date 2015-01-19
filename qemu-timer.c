@@ -77,6 +77,9 @@ struct QEMUTimerList {
     QemuEvent timers_done_ev;
 };
 
+//QEMUClock *vm_clock;                            
+QEMUClockType vm_clock;                            
+
 /**
  * qemu_clock_ptr:
  * @type: type of clock

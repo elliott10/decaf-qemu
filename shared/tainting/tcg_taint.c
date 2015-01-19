@@ -76,28 +76,28 @@ extern TCGv_ptr cpu_env;
 /*static*/ TCGv find_shadow_arg(TCGv arg)
 {
   if (arg < tcg_ctx.nb_globals)
-    return shadow_arg[arg];
+    return shadow_arg[(int)arg];
 
   /* Check if this temp is allocated in the context */
-  if (!tcg_ctx.temps[arg].temp_allocated)
+  if (!tcg_ctx.temps[(int)arg].temp_allocated)
     return 0;
 
-  if (!tcg_ctx.temps[shadow_arg[arg]].temp_allocated) {
-    if (tcg_ctx.temps[arg].temp_local)
+  if (!tcg_ctx.temps[(int)shadow_arg[(int)arg]].temp_allocated) {
+    if (tcg_ctx.temps[(int)arg].temp_local)
 #if TCG_TARGET_REG_BITS == 32 
-      shadow_arg[arg] = tcg_temp_local_new_i32();
+      shadow_arg[(int)arg] = tcg_temp_local_new_i32();
     else
-      shadow_arg[arg] = tcg_temp_new_i32();
+      shadow_arg[(int)arg] = tcg_temp_new_i32();
 #else
-      shadow_arg[arg] = tcg_temp_local_new_i64();
+      shadow_arg[(int)arg] = tcg_temp_local_new_i64();
     else
-      shadow_arg[arg] = tcg_temp_new_i64();
+      shadow_arg[(int)arg] = tcg_temp_new_i64();
 #endif
     // CLEAR TAINT ON CREATION
-    tcg_ctx.temps[shadow_arg[arg]].val = 0;
+    tcg_ctx.temps[(int)shadow_arg[(int)arg]].val = 0;
   }
 
-  return shadow_arg[arg];
+  return shadow_arg[(int)arg];
 }
 
 void clean_shadow_arg(void)
@@ -114,8 +114,8 @@ static void DUMMY_TAINT(int nb_oargs, int nb_args)
   int i = 0;
   for (i = 0; i < nb_oargs; i++)
   {
-    arg0 = find_shadow_arg(gen_opparam_ptr[(-1 * nb_args) + i]);
-    orig0 = gen_opparam_ptr[(-1 * nb_args) + i];
+    arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[(-1 * nb_args) + i]);
+    orig0 = tcg_ctx.gen_opparam_ptr[(-1 * nb_args) + i];
     if (arg0) {
 #if TCG_TARGET_REG_BITS == 32
       tcg_gen_movi_i32(arg0, 0);
@@ -159,7 +159,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TARGET check */
   int metabuffer_offset = 0;
 
-  int nb_opc = gen_opc_ptr - gen_old_opc_ptr;
+  int nb_opc = tcg_ctx.gen_opc_ptr - gen_old_opc_ptr;
   int return_lj = -1;
 
   int nb_args=0;
@@ -176,30 +176,30 @@ static inline int gen_taintcheck_insn(int search_pc)
 
   /* Copy all of the existing ops/parms into a new buffer to back them up. */
   memcpy(gen_old_opc_buf, gen_old_opc_ptr, sizeof(uint16_t)*(nb_opc));
-  memcpy(gen_old_opparam_buf, gen_old_opparam_ptr, sizeof(TCGArg)* (gen_opparam_ptr - gen_old_opparam_ptr));
+  memcpy(gen_old_opparam_buf, gen_old_opparam_ptr, sizeof(TCGArg)* (tcg_ctx.gen_opparam_ptr - gen_old_opparam_ptr));
 
   /* If we're inserting taint IR into a searchable TB, copy all of the
      existing metadata for the TB into a new buffer to back them up. */
   if (search_pc) {
     /* Figure out where we're starting in the metabuffers */
-    metabuffer_offset = gen_old_opc_ptr - gen_opc_buf;
+    metabuffer_offset = gen_old_opc_ptr - tcg_ctx.gen_opc_buf;
    
     /* Make our backup copies of the metadata buffers */ 
-    memcpy(gen_old_opc_pc, (gen_opc_pc + metabuffer_offset), sizeof(target_ulong)*(nb_opc));
-    memcpy(gen_old_opc_instr_start, (gen_opc_instr_start + metabuffer_offset), sizeof(uint8_t)*(nb_opc));
-    memcpy(gen_old_opc_icount, (gen_opc_icount + metabuffer_offset), sizeof(uint16_t)*(nb_opc));
+    memcpy(gen_old_opc_pc, (tcg_ctx.gen_opc_pc + metabuffer_offset), sizeof(target_ulong)*(nb_opc));
+    memcpy(gen_old_opc_instr_start, (tcg_ctx.gen_opc_instr_start + metabuffer_offset), sizeof(uint8_t)*(nb_opc));
+    memcpy(gen_old_opc_icount, (tcg_ctx.gen_opc_icount + metabuffer_offset), sizeof(uint16_t)*(nb_opc));
 #if defined(TARGET_I386)
     memcpy(gen_old_opc_cc_op, (gen_opc_cc_op + metabuffer_offset), sizeof(uint8_t)*(nb_opc));
 #elif defined(TARGET_ARM)
     memcpy(gen_old_opc_condexec_bits, (gen_opc_condexec_bits + metabuffer_offset), sizeof(uint32_t)*(nb_opc));
 #endif /* TARGET check */
 
-    memset(gen_opc_instr_start + metabuffer_offset, 0, sizeof(uint8_t) * (OPC_BUF_SIZE - metabuffer_offset)); 
+    memset(tcg_ctx.gen_opc_instr_start + metabuffer_offset, 0, sizeof(uint8_t) * (OPC_BUF_SIZE - metabuffer_offset)); 
   }
 
   /* Reset the ops/parms buffers */
-  gen_opc_ptr = gen_old_opc_ptr;
-  gen_opparam_ptr = gen_old_opparam_ptr;
+  tcg_ctx.gen_opc_ptr = gen_old_opc_ptr;
+  tcg_ctx.gen_opparam_ptr = gen_old_opparam_ptr;
 
 #if defined(LOG_TAINTED_EIP)
   /* Allocate our temps for logging taint */
@@ -215,10 +215,10 @@ static inline int gen_taintcheck_insn(int search_pc)
   while(opc_index < nb_opc) {
     /* If needed, copy all of the appropriate metadata */
     if (search_pc && (gen_old_opc_instr_start[opc_index] == 1)) {
-      return_lj = gen_opc_ptr - gen_opc_buf;
-      gen_opc_pc[return_lj] = gen_old_opc_pc[opc_index];
-      gen_opc_instr_start[return_lj] = 1;
-      gen_opc_icount[return_lj] = gen_old_opc_icount[opc_index];
+      return_lj = tcg_ctx.gen_opc_ptr - tcg_ctx.gen_opc_buf;
+      tcg_ctx.gen_opc_pc[return_lj] = gen_old_opc_pc[opc_index];
+      tcg_ctx.gen_opc_instr_start[return_lj] = 1;
+      tcg_ctx.gen_opc_icount[return_lj] = gen_old_opc_icount[opc_index];
 #if defined(TARGET_I386)
       gen_opc_cc_op[return_lj] = gen_old_opc_cc_op[opc_index];
 #elif defined(TARGET_ARM)
@@ -227,7 +227,7 @@ static inline int gen_taintcheck_insn(int search_pc)
     }
 
     /* Copy the opcode to be instrumented */
-    opc = *(gen_opc_ptr++) = gen_old_opc_buf[opc_index++];
+    opc = *(tcg_ctx.gen_opc_ptr++) = gen_old_opc_buf[opc_index++];
 
     /* Determine the number and type of arguments for the opcode */
     if (opc == INDEX_op_call) {
@@ -248,15 +248,15 @@ static inline int gen_taintcheck_insn(int search_pc)
 
     /* Copy the appropriate number of arguments for the opcode */
     for(i=0; i<nb_args; i++)
-      *(gen_opparam_ptr++) = gen_old_opparam_buf[opparam_index++];
+      *(tcg_ctx.gen_opparam_ptr++) = gen_old_opparam_buf[opparam_index++];
 
-    /* Copy the current gen_opc_ptr.  After we instrument this IR,
-       we compare the copy of gen_opc_ptr against its current value.
+    /* Copy the current tcg_ctx.gen_opc_ptr.  After we instrument this IR,
+       we compare the copy of tcg_ctx.gen_opc_ptr against its current value.
        If it has increased, that means we inserted additional IR and,
        if this is a "search_pc" TB, that means we know how many extra
        entries we need to put in the metadata buffers to keep
        everything in sync. */
-    gen_old_opc_ptr = gen_opc_ptr;
+    gen_old_opc_ptr = tcg_ctx.gen_opc_ptr;
 
     switch(opc)
     {
@@ -271,7 +271,7 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_debug_insn_start:
       case INDEX_op_goto_tb:
       case INDEX_op_exit_tb:
-      case INDEX_op_jmp:
+      //case INDEX_op_jmp: xly for decaf
       case INDEX_op_br:
       case INDEX_op_brcond_i32:
 #if (TCG_TARGET_REG_BITS == 32)
@@ -281,8 +281,8 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_discard:   // Remove associated shadow reg
-        orig0 = gen_opparam_ptr[-1];
-        arg0 = find_shadow_arg(gen_opparam_ptr[-1]);
+        orig0 = tcg_ctx.gen_opparam_ptr[-1];
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
         if (arg0) {
           tcg_gen_discard_tl(arg0);
         }
@@ -305,18 +305,18 @@ static inline int gen_taintcheck_insn(int search_pc)
         // These calls always have five parameters.
         if (out_helper_func) {
           // Back up call arguments
-          arg5 = gen_opparam_ptr[-6]; // Const/in/out encoding
-          arg4 = gen_opparam_ptr[-5]; // (I) Port
-          arg3 = gen_opparam_ptr[-4]; // (I) Data
-          arg2 = gen_opparam_ptr[-3]; // (I) Register with function address
-          arg1 = gen_opparam_ptr[-2]; // (C) Flags
-          arg0 = gen_opparam_ptr[-1]; // (C) ?
+          arg5 = tcg_ctx.gen_opparam_ptr[-6]; // Const/in/out encoding
+          arg4 = tcg_ctx.gen_opparam_ptr[-5]; // (I) Port
+          arg3 = tcg_ctx.gen_opparam_ptr[-4]; // (I) Data
+          arg2 = tcg_ctx.gen_opparam_ptr[-3]; // (I) Register with function address
+          arg1 = tcg_ctx.gen_opparam_ptr[-2]; // (C) Flags
+          arg0 = tcg_ctx.gen_opparam_ptr[-1]; // (C) ?
 
           // Find the shadow for the data input
-          arg6 = find_shadow_arg(gen_opparam_ptr[-4]);
+          arg6 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]);
           // Back up the instruction/arg stream so that we can patch
-          gen_opparam_ptr -= 6;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 6;
+          tcg_ctx.gen_opc_ptr--;
           // Insert the ST opcode
           if (arg6) {
             tcg_gen_st_tl(arg6, cpu_env, offsetof(OurCPUState,tempidx));
@@ -332,27 +332,27 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TARGET_REG_BITS == 32 */
           }
           // Manually insert the CALL opcode
-          *(gen_opc_ptr++) = INDEX_op_call;
-          gen_opparam_ptr += 6;
-          gen_opparam_ptr[-6] = arg5;
-          gen_opparam_ptr[-5] = arg4;
-          gen_opparam_ptr[-4] = arg3;
-          gen_opparam_ptr[-3] = arg2;
-          gen_opparam_ptr[-2] = arg1;
-          gen_opparam_ptr[-1] = arg0;
+          *(tcg_ctx.gen_opc_ptr++) = INDEX_op_call;
+          tcg_ctx.gen_opparam_ptr += 6;
+          tcg_ctx.gen_opparam_ptr[-6] = arg5;
+          tcg_ctx.gen_opparam_ptr[-5] = arg4;
+          tcg_ctx.gen_opparam_ptr[-4] = arg3;
+          tcg_ctx.gen_opparam_ptr[-3] = arg2;
+          tcg_ctx.gen_opparam_ptr[-2] = arg1;
+          tcg_ctx.gen_opparam_ptr[-1] = arg0;
           // Clear the helper flag
           out_helper_func = 0;
         }
 #endif // AWH
 #endif /* TARGET_I386 */
         for (i=0; i < nb_oargs; i++) {
-          arg0 = find_shadow_arg(gen_opparam_ptr[
+          arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[
             (-1 * nb_args) /* Position of first argument in opcode stream */
             + 1	/* Skip first argument (which has # of arguments breakdown) */
             + i	/* Skip to the output parm that we are interested in */
           ]);
           if (arg0) {
-            orig0 = gen_opparam_ptr[(-1 * nb_args) + 1 + i];
+            orig0 = tcg_ctx.gen_opparam_ptr[(-1 * nb_args) + 1 + i];
             // Check if this is a call to an IN helper function.
             // If so, we grab the tempidx after the function call.
 #ifdef TARGET_I386
@@ -389,23 +389,23 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_deposit_i32: // Always bitwise taint
-        arg0 = find_shadow_arg(gen_opparam_ptr[-5]); // Output
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-5]); // Output
         if (arg0) {
           int pos, len; // Constant parameters
 
-          arg1 = find_shadow_arg(gen_opparam_ptr[-4]); // Input1
-          arg2 = find_shadow_arg(gen_opparam_ptr[-3]); // Input2
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]); // Input1
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]); // Input2
 
           /* Store opcode parms */
-          orig0 = gen_opparam_ptr[-5];
-          orig1 = gen_opparam_ptr[-4];
-          orig2 = gen_opparam_ptr[-3];
-          pos = gen_opparam_ptr[-2]; // Position of mask
-          len = gen_opparam_ptr[-1]; // Length of mask
+          orig0 = tcg_ctx.gen_opparam_ptr[-5];
+          orig1 = tcg_ctx.gen_opparam_ptr[-4];
+          orig2 = tcg_ctx.gen_opparam_ptr[-3];
+          pos = tcg_ctx.gen_opparam_ptr[-2]; // Position of mask
+          len = tcg_ctx.gen_opparam_ptr[-1]; // Length of mask
 
           /* Rewind the instruction stream */
-          gen_opparam_ptr -= 5;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 5;
+          tcg_ctx.gen_opc_ptr--;
 
           /* Insert taint IR */
           // Handle special 32-bit transfer case (copy arg2 taint)
@@ -425,24 +425,24 @@ static inline int gen_taintcheck_insn(int search_pc)
 
 #if TCG_TARGET_REG_BITS == 32
       case INDEX_op_setcond2_i32: // All-Around: UifU64() w/ mkPCastTo()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-6]); // Output
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-6]); // Output
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-5]); // Input1 low
-          arg2 = find_shadow_arg(gen_opparam_ptr[-4]); // Input1 high
-          arg3 = find_shadow_arg(gen_opparam_ptr[-3]); // Input2 low
-          arg4 = find_shadow_arg(gen_opparam_ptr[-2]); // Input2 high
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-5]); // Input1 low
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]); // Input1 high
+          arg3 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]); // Input2 low
+          arg4 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]); // Input2 high
 
           /* Store opcode parms */
-          orig0 = gen_opparam_ptr[-6];
-          orig1 = gen_opparam_ptr[-5];
-          orig2 = gen_opparam_ptr[-4];
-          orig3 = gen_opparam_ptr[-3];
-          orig4 = gen_opparam_ptr[-2];
-          orig5 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-6];
+          orig1 = tcg_ctx.gen_opparam_ptr[-5];
+          orig2 = tcg_ctx.gen_opparam_ptr[-4];
+          orig3 = tcg_ctx.gen_opparam_ptr[-3];
+          orig4 = tcg_ctx.gen_opparam_ptr[-2];
+          orig5 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind the instruction stream */
-          gen_opparam_ptr -= 6;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 6;
+          tcg_ctx.gen_opc_ptr--;
 
           /* Insert taint IR */
           // Combine high/low taint of Input 1 into t2
@@ -483,42 +483,42 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_REG_BITS */
 
       case INDEX_op_movi_i32: // Always bit taint
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
 #ifdef TARGET_I386
 #define HELPER_SECTION_TWO
 #include "helper_i386_check.h"
 #if 0 // AWH
           /* Check if the constant is a helper function for IN* opcodes */
-          if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inb) ||
-            (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inw) ||
-            (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inl) )
+          if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inb) ||
+            (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inw) ||
+            (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inl) )
           {
             in_helper_func = 1;
             //fprintf(stderr, "tcg_taint.c: movi_i32 in helper func\n");
           }
           /* Check if the constant is a helper function for OUT* opcodes */
-          else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outb) ||
-            (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outw) ||
-            (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outl) )
+          else if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outb) ||
+            (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outw) ||
+            (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outl) )
           {
             out_helper_func = 1;
             //fprintf(stderr, "tcg_taint.c: movi_i32 out helper func\n");
           }
           /* Check if the constant is a helper function for CMPXCHG */
-          else if (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_DECAF_taint_cmpxchg)
+          else if (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_DECAF_taint_cmpxchg)
           {
             cmpxchg_helper_func = 1;
           }
 #endif
 #endif /* TARGET_I386 */
           /* Store opcode parms */
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind the instruction stream */
-          gen_opparam_ptr -= 2;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 2;
+          tcg_ctx.gen_opc_ptr--;
 
           /* Insert taint propagation */
           tcg_gen_movi_i32(arg0, 0);
@@ -529,16 +529,16 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_mov_i32:    // Always bit taint
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
-        arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+        arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
         if (arg0) {
           /* Store opcode parms */
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind the instruction stream */
-          gen_opparam_ptr -= 2;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 2;
+          tcg_ctx.gen_opc_ptr--;
 
           /* Insert taint propagation */
           tcg_gen_mov_i32(arg0, arg1);
@@ -550,28 +550,30 @@ static inline int gen_taintcheck_insn(int search_pc)
 
       /* Load/store operations (32 bit). */
       /* MemCheck: mkLazyN() (Just load/store taint from/to memory) */
-      case INDEX_op_qemu_ld8u: 
+      /*xly for decaf
+      case INDEX_op_qemu_ld_i32:
       case INDEX_op_qemu_ld8s: 
       case INDEX_op_qemu_ld16u:
       case INDEX_op_qemu_ld16s:
 #if TCG_TARGET_REG_BITS == 64
       case INDEX_op_qemu_ld32u:
       case INDEX_op_qemu_ld32s:
-#endif /* TCG_TARGET_REG_BITS == 64 */
-      case INDEX_op_qemu_ld32:
+#endif */ /* TCG_TARGET_REG_BITS == 64 */
+      case INDEX_op_qemu_ld_i32:
         // TARGET_REG_BITS = 64 OR (TARGET_REG_BITS = 32, TARGET_LONG_BITS = 32)
-        if (nb_iargs == 1) arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        if (nb_iargs == 1)
+	arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         // TARGET_REG_BITS = 32, TARGET_LONG_BITS = 64
         else tcg_abort(); // Not supported
         if (arg0) {
           /* Patch qemu_ld* opcode into taint_qemu_ld* */
-          gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
-          orig0 = gen_opparam_ptr[-3];
+          tcg_ctx.gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld_i32 - INDEX_op_qemu_ld_i32);
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
 
           /* Are we doing pointer tainting? */
           if (taint_load_pointers_enabled) {
-            arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-        //    int addr = gen_opparam_ptr[-2];
+            arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+        //    int addr = tcg_ctx.gen_opparam_ptr[-2];
             if (arg1) {
 
 #if (TCG_TARGET_REG_BITS == 64)
@@ -636,18 +638,18 @@ static inline int gen_taintcheck_insn(int search_pc)
         }
         break;
 
-      case INDEX_op_qemu_ld64:
+      case INDEX_op_qemu_ld_i64:
 #if 1 // AWH - FIXME: 64-bit memory ops may cause corruption
         DUMMY_TAINT(nb_oargs, nb_args);
 #else
         // TARGET_REG_BITS = 32, TARGET_LONG_BITS = 32
         if ((nb_oargs == 2) && (nb_iargs == 1)) {
-          arg0 = find_shadow_arg(gen_opparam_ptr[-4]); // Taint of low DWORD
-          arg1 = find_shadow_arg(gen_opparam_ptr[-3]); // Taint of hi DWORD
+          arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]); // Taint of low DWORD
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]); // Taint of hi DWORD
           if (arg0 || arg1) {
-            gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
+            tcg_ctx.gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld_i32/*decaf*/);
             if (taint_load_pointers_enabled) {
-              arg2 = find_shadow_arg(gen_opparam_ptr[-2]);
+              arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
               if (arg2) {
                 t0 = tcg_temp_new_i32();
                 t1 = tcg_temp_new_i32();
@@ -688,11 +690,11 @@ static inline int gen_taintcheck_insn(int search_pc)
           }
         // TARGET_REG_BITS = 64, TARGET_LONG_BITS = 64
         } else if ((nb_oargs ==1) && (nb_iargs == 1)) {
-          arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+          arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
           if (arg0) {
-            gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
+            tcg_ctx.gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld_i32/*decaf*/);
             if (taint_load_pointers_enabled) {
-              arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
+              arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
               if (arg1) {
                 t0 = tcg_temp_new_i64();
                 t1 = tcg_temp_new_i64();
@@ -724,12 +726,12 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
 #if 1 // AWH - DEBUG
-      case INDEX_op_qemu_st32:
+      case INDEX_op_qemu_st_i32:
         //DUMMY_TAINT(nb_oargs, nb_args);
         //break;
  
-      case INDEX_op_qemu_st8:
-      case INDEX_op_qemu_st16:
+//      case INDEX_op_qemu_st8:
+ //     case INDEX_op_qemu_st16: xly for decaf
 #else
       case INDEX_op_qemu_st8: 
       case INDEX_op_qemu_st16:
@@ -737,17 +739,17 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif // AWH
         // TARGET_REG_BITS = 64 OR (TARGET_REG_BITS = 32, TARGET_LONG_BITS = 32)
         if (nb_iargs == 2) {
-          arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
+          arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
           if (arg0) {
             /* Save the qemu_st* parameters */
-            int mem_index = gen_opparam_ptr[-1];
-            int addr = gen_opparam_ptr[-2];
-            int ret = gen_opparam_ptr[-3];
-            int ir = gen_opc_ptr[-1];
+            int mem_index = tcg_ctx.gen_opparam_ptr[-1];
+            int addr = tcg_ctx.gen_opparam_ptr[-2];
+            int ret = tcg_ctx.gen_opparam_ptr[-3];
+            int ir = tcg_ctx.gen_opc_ptr[-1];
             /* Back up to insert a new IR on top of the qemu_st*  */
-            gen_opc_ptr--;
-            gen_opparam_ptr -= 3;
+            tcg_ctx.gen_opc_ptr--;
+            tcg_ctx.gen_opparam_ptr -= 3;
 
             if (taint_store_pointers_enabled) {
               if (arg1) {
@@ -788,34 +790,34 @@ static inline int gen_taintcheck_insn(int search_pc)
               tcg_gen_st32_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
 
             /* Insert the taint_qemu_st* IR */
-            gen_opc_ptr++;
-            gen_opparam_ptr += 3;
-            gen_opc_ptr[-1] = ir + (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
-            gen_opparam_ptr[-1] = mem_index; 
-            gen_opparam_ptr[-2] = addr;
-            gen_opparam_ptr[-3] = ret;
+            tcg_ctx.gen_opc_ptr++;
+            tcg_ctx.gen_opparam_ptr += 3;
+            tcg_ctx.gen_opc_ptr[-1] = ir + (INDEX_op_taint_qemu_ld_i32 - INDEX_op_qemu_ld_i32/*decaf*/);
+            tcg_ctx.gen_opparam_ptr[-1] = mem_index; 
+            tcg_ctx.gen_opparam_ptr[-2] = addr;
+            tcg_ctx.gen_opparam_ptr[-3] = ret;
           }
         } else
           tcg_abort();
         break;
 
-      case INDEX_op_qemu_st64:
+      case INDEX_op_qemu_st_i64:
 #if 0 // AWH - FIXME: 64-bit memory ops may cause corruption
         /* TARGET_REG_BITS == 64 */
         if (nb_iargs == 2) {
-          arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+          arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
           if (arg0) {
             /* Save the qemu_st64 parameters */
-            int mem_index = gen_opparam_ptr[-1];
-            int addr = gen_opparam_ptr[-2];
-            int ret = gen_opparam_ptr[-3];
+            int mem_index = tcg_ctx.gen_opparam_ptr[-1];
+            int addr = tcg_ctx.gen_opparam_ptr[-2];
+            int ret = tcg_ctx.gen_opparam_ptr[-3];
 
             /* Back up to insert a new IR on top of the qemu_st64 */
-            gen_opc_ptr--;
-            gen_opparam_ptr -= 3;
+            tcg_ctx.gen_opc_ptr--;
+            tcg_ctx.gen_opparam_ptr -= 3;
 
             if (taint_store_pointers_enabled) {
-              arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
+              arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
               if (arg1) {
                 t0 = tcg_temp_new_i64();
                 t1 = tcg_temp_new_i64();
@@ -839,34 +841,34 @@ static inline int gen_taintcheck_insn(int search_pc)
               tcg_gen_st_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
 
             /* Insert the taint_qemu_st* IR */
-            gen_opc_ptr++;
-            gen_opparam_ptr += 3;
+            tcg_ctx.gen_opc_ptr++;
+            tcg_ctx.gen_opparam_ptr += 3;
 
-            gen_opc_ptr[-1] = INDEX_op_taint_qemu_st64;
-            gen_opparam_ptr[-1] = mem_index;
-            gen_opparam_ptr[-2] = addr;
-            gen_opparam_ptr[-3] = ret;
+            tcg_ctx.gen_opc_ptr[-1] = INDEX_op_taint_qemu_st64;
+            tcg_ctx.gen_opparam_ptr[-1] = mem_index;
+            tcg_ctx.gen_opparam_ptr[-2] = addr;
+            tcg_ctx.gen_opparam_ptr[-3] = ret;
           }
         // TARGET_REG_BITS = 32, TARGET_LONG_BITS = 32
         } else if (nb_iargs == 3) {
-          arg0 = find_shadow_arg(gen_opparam_ptr[-4]); // Taint of low DWORD
-          arg1 = find_shadow_arg(gen_opparam_ptr[-3]); // Taint of high DWORD
+          arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]); // Taint of low DWORD
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]); // Taint of high DWORD
           if (arg0 || arg1) {
-            int ret_lo = gen_opparam_ptr[-4]; // Low DWORD of data
-            int ret_hi = gen_opparam_ptr[-3]; // High DWORD of Data
-            int addr = gen_opparam_ptr[-2]; // Addr
-            int mem_index = gen_opparam_ptr[-1]; // MMU index
+            int ret_lo = tcg_ctx.gen_opparam_ptr[-4]; // Low DWORD of data
+            int ret_hi = tcg_ctx.gen_opparam_ptr[-3]; // High DWORD of Data
+            int addr = tcg_ctx.gen_opparam_ptr[-2]; // Addr
+            int mem_index = tcg_ctx.gen_opparam_ptr[-1]; // MMU index
 
             /* Back up to insert two new store IRs on top of the qemu_st64 */
-            gen_opc_ptr--;
-            gen_opparam_ptr -= 4;
+            tcg_ctx.gen_opc_ptr--;
+            tcg_ctx.gen_opparam_ptr -= 4;
 
             t0 = tcg_temp_new_i32();
             t1 = tcg_temp_new_i32();
             t2 = tcg_temp_new_i32();
 
             if (taint_store_pointers_enabled) {
-              arg2 = find_shadow_arg(gen_opparam_ptr[-2]);
+              arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
               if (arg2) {
                 /* Check for pointer taint */
                 tcg_gen_movi_i32(t1, 0);
@@ -929,14 +931,14 @@ static inline int gen_taintcheck_insn(int search_pc)
             }
 
             /* Insert the taint_qemu_st* IR */
-            gen_opc_ptr++;
-            gen_opparam_ptr += 4;
+            tcg_ctx.gen_opc_ptr++;
+            tcg_ctx.gen_opparam_ptr += 4;
 
-            gen_opc_ptr[-1] = INDEX_op_taint_qemu_st64;
-            gen_opparam_ptr[-1] = mem_index;
-            gen_opparam_ptr[-2] = addr;
-            gen_opparam_ptr[-3] = ret_hi;
-            gen_opparam_ptr[-4] = ret_lo;
+            tcg_ctx.gen_opc_ptr[-1] = INDEX_op_taint_qemu_st_i64;
+            tcg_ctx.gen_opparam_ptr[-1] = mem_index;
+            tcg_ctx.gen_opparam_ptr[-2] = addr;
+            tcg_ctx.gen_opparam_ptr[-3] = ret_hi;
+            tcg_ctx.gen_opparam_ptr[-4] = ret_lo;
           }
         // TARGET_REG_BITS = 32, TARGET_LONG_BITS = 64
         } else /*if (nb_iargs == 4)*/ {
@@ -947,20 +949,20 @@ static inline int gen_taintcheck_insn(int search_pc)
 
       /* Arithmethic/shift/rotate operations (32 bit). */
       case INDEX_op_setcond_i32: // All-Around: UifU32() (mkLazy())
-        arg0 = find_shadow_arg(gen_opparam_ptr[-4]); // Output
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]); // Output
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-3]); // Input1
-          arg2 = find_shadow_arg(gen_opparam_ptr[-2]); // Input2
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]); // Input1
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]); // Input2
 
           /* Store opcode and parms and back up */
-          orig0 = gen_opparam_ptr[-4];
-          orig1 = gen_opparam_ptr[-3];
-          orig2 = gen_opparam_ptr[-2];
-          orig3 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-4];
+          orig1 = tcg_ctx.gen_opparam_ptr[-3];
+          orig2 = tcg_ctx.gen_opparam_ptr[-2];
+          orig3 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind instruction stream */
-          gen_opparam_ptr -= 4;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 4;
+          tcg_ctx.gen_opc_ptr--;
 
           if (arg1 && arg2) {
             t0 = tcg_temp_new_i32();
@@ -974,7 +976,7 @@ static inline int gen_taintcheck_insn(int search_pc)
           } else {
             tcg_gen_mov_i32(arg0, 0);
             /* Reinsert original opcode */
-            tcg_gen_setcond_i32(orig0, orig1, orig2, orig3);
+            tcg_gen_setcond_i32((TCGCond)orig0, orig1, orig2, orig3);
             break;
           }
 
@@ -987,26 +989,26 @@ static inline int gen_taintcheck_insn(int search_pc)
           tcg_gen_neg_i32(arg0, t2);
 
           /* Reinsert original opcode */
-          tcg_gen_setcond_i32(orig0, orig1, orig2, orig3);
+          tcg_gen_setcond_i32((TCGCond)orig0, orig1, orig2, orig3);
         }
         break;
 
       /* IN MEMCHECK (VALGRIND), LOOK AT: memcheck/mc_translate.c
          expr2vbits_Binop(), expr2vbits_Unop() */ 
       case INDEX_op_shl_i32: // Special - scalarShift()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           /* Store opcode parms */
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind instruction stream */
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           /* Insert taint IR */
           if (!arg1 && !arg2) {
@@ -1032,7 +1034,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           if (arg1) {
             // Perform the SHL on arg1
-            tcg_gen_shl_i32(t0, arg1, orig2);//tcg_gen_shl_i32(t0, arg1, gen_opparam_ptr[-1]);
+            tcg_gen_shl_i32(t0, arg1, orig2);//tcg_gen_shl_i32(t0, arg1, tcg_ctx.gen_opparam_ptr[-1]);
             // OR together the taint of shifted arg1 (t0) and arg2 (t2)
             tcg_gen_or_i32(arg0, t0, t2);
           } else
@@ -1043,19 +1045,19 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_shr_i32: // Special - scalarShift()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           /* Store opcode parms */
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind instruction stream */
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           /* Insert taint IR */
           if (!arg1 && !arg2) {
@@ -1092,19 +1094,19 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_sar_i32: // Special - scalarShift()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           /* Store opcode parms */
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind the instruction stream */
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           /* Insert taint IR */
           if (!arg1 && !arg2) {
@@ -1142,19 +1144,19 @@ static inline int gen_taintcheck_insn(int search_pc)
 
 #if TCG_TARGET_HAS_rot_i32
       case INDEX_op_rotl_i32: // Special - MemCheck does lazy, but we shift
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           /* Store opcode and parms and back up */
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind the instruction stream */
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           /* Insert tainting IR */
           if (!arg1 && !arg2) {
@@ -1191,19 +1193,19 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_rotr_i32: // Special - MemCheck does lazy, but we shift
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           /* Store opcode and parms and back up */
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind instruction stream */
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           /* Insert tainting IR */
           if (!arg1 && !arg2) {
@@ -1244,22 +1246,22 @@ static inline int gen_taintcheck_insn(int search_pc)
  // AWH - expensiveAddSub() for add_i32/or_i32 are buggy, use cheap one
       /* T0 = (T1 | T2) | ((V1_min + V2_min) ^ (V1_max + V2_max)) */
       case INDEX_op_add_i32: // Special - expensiveAddSub()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
           //LOK: Changed the names of orig0 and orig 1 to orig1 and 2
           // so I don't get confused
           // Basically arg is vxx and orig is x
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           //make sure we have a copy of the values first
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           //delete the original operation
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           
           //LOK: Declared the new temporary variables that we need
@@ -1300,7 +1302,7 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
       /* T0 = (T1 | T2) | ((V1_min - V2_max) ^ (V1_max - V2_min)) */
       case INDEX_op_sub_i32: // Special - expensiveAddSub()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
           //NOTE: It is important that we get the order of the operands correct
           // Right now, the assumption is
@@ -1310,17 +1312,17 @@ static inline int gen_taintcheck_insn(int search_pc)
           //LOK: Changed the names of orig0 and orig 1 to orig1 and 2
           // so I don't get confused
           // Basically arg is vxx and orig is x
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           //make sure we have a copy of the values first
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           //delete the original operation
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           //LOK: Declared the new temporary variables that we need
           t0 = tcg_temp_new_i32(); //scratch
@@ -1366,19 +1368,19 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_sub_i32: // Up - cheap_AddSub32
 #endif
       case INDEX_op_mul_i32: // Up - mkUifU32(), mkLeft32(), mkPCastTo()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           /* Store opcode and parms and back up */
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Rewind instruction stream */
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           if (!arg1 && !arg2) {
             tcg_gen_movi_i32(arg0, 0);
@@ -1414,19 +1416,19 @@ static inline int gen_taintcheck_insn(int search_pc)
         AND: ((NOT T1) * V1 * T2) + (T1 * (NOT T2) * V2) + (T1 * T2)
       */  
       case INDEX_op_and_i32: // Special - and_or_ty()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           /* Store opcode parms */
-          orig0 = gen_opparam_ptr[-1];//V1
-          orig1 = gen_opparam_ptr[-2];//V2
-          orig2 = gen_opparam_ptr[-3];
+          orig0 = tcg_ctx.gen_opparam_ptr[-1];//V1
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];//V2
+          orig2 = tcg_ctx.gen_opparam_ptr[-3];
 
           /* Rewind instruction stream */
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           t0 = tcg_temp_new_i32();
           t1 = tcg_temp_new_i32();
@@ -1434,15 +1436,15 @@ static inline int gen_taintcheck_insn(int search_pc)
           t3 = tcg_temp_new_i32();
 
           /* T1 -> arg1
-             V1 -> gen_opparam_ptr[-2]
+             V1 -> tcg_ctx.gen_opparam_ptr[-2]
              T2 -> arg2
-             V2 -> gen_opparam_ptr[-1] */
+             V2 -> tcg_ctx.gen_opparam_ptr[-1] */
           if (arg1)
             tcg_gen_not_i32(t0, arg1); // NOT T1
           else
             tcg_gen_movi_i32(t0, -1);
           if (arg2)
-            tcg_gen_and_i32(t1,orig1,arg2);//tcg_gen_and_i32(t1, gen_opparam_ptr[-2], arg2); // V1 * T2
+            tcg_gen_and_i32(t1,orig1,arg2);//tcg_gen_and_i32(t1, tcg_ctx.gen_opparam_ptr[-2], arg2); // V1 * T2
           else
             tcg_gen_movi_i32(t1, 0);
           tcg_gen_and_i32(t2, t0, t1); // (NOT T1) * V1 * T2
@@ -1452,7 +1454,7 @@ static inline int gen_taintcheck_insn(int search_pc)
           else
             tcg_gen_movi_i32(t0, -1);
           if (arg1)
-            tcg_gen_and_i32(t1,arg1,orig0);//tcg_gen_and_i32(t1, arg1, gen_opparam_ptr[-1]); // T1 * V2
+            tcg_gen_and_i32(t1,arg1,orig0);//tcg_gen_and_i32(t1, arg1, tcg_ctx.gen_opparam_ptr[-1]); // T1 * V2
           else
             tcg_gen_movi_i32(t1, 0);
           tcg_gen_and_i32(t3, t0, t1); // (T1 * (NOT T2) * V2)
@@ -1480,17 +1482,17 @@ static inline int gen_taintcheck_insn(int search_pc)
         OR: ((NOT T1) * (NOT V1) * T2) + (T1 * (NOT T2) * (NOT V2)) + (T1 * T2)
       */
       case INDEX_op_or_i32: // Special - and_or_ty()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-1];//V1
-          orig1 = gen_opparam_ptr[-2];//V2
-          orig2 = gen_opparam_ptr[-3];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-1];//V1
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];//V2
+          orig2 = tcg_ctx.gen_opparam_ptr[-3];
 
           /* Rewind instruction stream */
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           t0 = tcg_temp_new_i32();
           t1 = tcg_temp_new_i32();
@@ -1498,14 +1500,14 @@ static inline int gen_taintcheck_insn(int search_pc)
           t3 = tcg_temp_new_i32();
 
           /* T1 -> arg1
-             V1 -> gen_opparam_ptr[-2]
+             V1 -> tcg_ctx.gen_opparam_ptr[-2]
              T2 -> arg2
-             V2 -> gen_opparam_ptr[-1] */
+             V2 -> tcg_ctx.gen_opparam_ptr[-1] */
           if (arg1)
             tcg_gen_not_i32(t0, arg1); // NOT T1
           else
             tcg_gen_movi_i32(t0, -1);
-          tcg_gen_not_i32(t1, orig1);//tcg_gen_not_i32(t1, gen_opparam_ptr[-2]); // NOT V1
+          tcg_gen_not_i32(t1, orig1);//tcg_gen_not_i32(t1, tcg_ctx.gen_opparam_ptr[-2]); // NOT V1
           tcg_gen_and_i32(t2, t0, t1); // (NOT T1) * (NOT V1)
           if (arg2)
             tcg_gen_and_i32(t0, t2, arg2); // (NOT T1) * (NOT V1) * T2
@@ -1516,7 +1518,7 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_not_i32(t1, arg2); // NOT T2
           else
             tcg_gen_movi_i32(t1, -1);
-          tcg_gen_not_i32(t2, orig0);//tcg_gen_not_i32(t2, gen_opparam_ptr[-1]); // NOT V2
+          tcg_gen_not_i32(t2, orig0);//tcg_gen_not_i32(t2, tcg_ctx.gen_opparam_ptr[-1]); // NOT V2
           tcg_gen_and_i32(t3, t1, t2); // (NOT T2) * (NOT V2)
           if (arg1)
             tcg_gen_and_i32(t1, t3, arg1); // (NOT T2) * (NOT V2) * T1
@@ -1552,10 +1554,10 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_mul_i32:
       case INDEX_op_and_i32:
       case INDEX_op_or_i32:
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           /* Determine which args are shadowed */
           if (arg1 && arg2) {
@@ -1581,16 +1583,16 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 #endif /* TCG_BITWISE_TAINT */
       case INDEX_op_mulu2_i32: // Bytewise, mkLazyN()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-4]);
-        arg1 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]);
+        arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0 && arg1) {
-          arg2 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg3 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg3 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
      
-          orig0 = gen_opparam_ptr[-4];
-          orig1 = gen_opparam_ptr[-3];
-          orig2 = gen_opparam_ptr[-2];
-          orig3 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-4];
+          orig1 = tcg_ctx.gen_opparam_ptr[-3];
+          orig2 = tcg_ctx.gen_opparam_ptr[-2];
+          orig3 = tcg_ctx.gen_opparam_ptr[-1];
  
           if (arg2 && arg3) {
             t0 = tcg_temp_new_i32();
@@ -1618,20 +1620,20 @@ static inline int gen_taintcheck_insn(int search_pc)
 
       case INDEX_op_add2_i32: // Bytewise, mkLazyN()
       case INDEX_op_sub2_i32: // Bytewise, mkLazyN()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-6]); // Output low
-        arg1 = find_shadow_arg(gen_opparam_ptr[-5]); // Output high
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-6]); // Output low
+        arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-5]); // Output high
         if (arg0 && arg1) {
-          arg2 = find_shadow_arg(gen_opparam_ptr[-4]); // Input1 low
-          arg3 = find_shadow_arg(gen_opparam_ptr[-3]); // Input1 high
-          arg4 = find_shadow_arg(gen_opparam_ptr[-2]); // Input2 low
-          arg5 = find_shadow_arg(gen_opparam_ptr[-1]); // Input2 high
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]); // Input1 low
+          arg3 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]); // Input1 high
+          arg4 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]); // Input2 low
+          arg5 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]); // Input2 high
 
-          orig0 = gen_opparam_ptr[-6];
-          orig1 = gen_opparam_ptr[-5];
-          orig2 = gen_opparam_ptr[-4];
-          orig3 = gen_opparam_ptr[-3];
-          orig4 = gen_opparam_ptr[-2];
-          orig5 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-6];
+          orig1 = tcg_ctx.gen_opparam_ptr[-5];
+          orig2 = tcg_ctx.gen_opparam_ptr[-4];
+          orig3 = tcg_ctx.gen_opparam_ptr[-3];
+          orig4 = tcg_ctx.gen_opparam_ptr[-2];
+          orig5 = tcg_ctx.gen_opparam_ptr[-1];
 
           if (!(arg2 || arg3 || arg4 || arg5)) {
             tcg_gen_movi_i32(arg0, 0);
@@ -1675,14 +1677,14 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_xor_i32: // In-Place - mkUifU32
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* Perform an OR an arg1 and arg2 to find taint */
           if (arg1 && arg2)
@@ -1701,14 +1703,14 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_divu_i32: // All-around: mkLazy2()
       case INDEX_op_rem_i32: // All-around: mkLazy2()
       case INDEX_op_remu_i32: // All-around: mkLazy2()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
         
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
   
           if (arg1 && arg2) {
             t0 = tcg_temp_new_i32();
@@ -1734,18 +1736,18 @@ static inline int gen_taintcheck_insn(int search_pc)
 #elif TCG_TARGET_HAS_div2_i32
       case INDEX_op_div2_i32: // All-around: mkLazy3()
       case INDEX_op_divu2_i32: // All-around: mkLazy3()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-5]);
-        arg1 = find_shadow_arg(gen_opparam_ptr[-4]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-5]);
+        arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]);
         if (arg0 && arg1) {
-          arg2 = find_shadow_arg(gen_opparam_ptr[-3]);
-          arg3 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg4 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
+          arg3 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg4 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
-          orig0 = gen_opparam_ptr[-5];
-          orig1 = gen_opparam_ptr[-4];
-          orig2 = gen_opparam_ptr[-3];
-          orig3 = gen_opparam_ptr[-2];
-          orig4 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-5];
+          orig1 = tcg_ctx.gen_opparam_ptr[-4];
+          orig2 = tcg_ctx.gen_opparam_ptr[-3];
+          orig3 = tcg_ctx.gen_opparam_ptr[-2];
+          orig4 = tcg_ctx.gen_opparam_ptr[-1];
 
           /* No shadows for any inputs */
           if (!(arg2 || arg3 || arg4))
@@ -1785,11 +1787,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 
 #if TCG_TARGET_HAS_ext8s_i32
       case INDEX_op_ext8s_i32: // MemCheck: VgT_SWiden14
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
           if (arg1)
             tcg_gen_ext8s_i32(arg0, arg1);
           else
@@ -1799,11 +1801,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext8s_i32 */
 #if TCG_TARGET_HAS_ext16s_i32
       case INDEX_op_ext16s_i32: // MemCheck: VgT_SWiden24
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
           if (arg1)
             tcg_gen_ext16s_i32(arg0, arg1);
           else
@@ -1813,11 +1815,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext16s_i32 */
 #if TCG_TARGET_HAS_ext8u_i32
       case INDEX_op_ext8u_i32: // MemCheck: VgT_ZWiden14
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
 
           if (arg1)
             tcg_gen_ext8u_i32(arg0, arg1);
@@ -1828,11 +1830,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext8u_i32 */
 #if TCG_TARGET_HAS_ext16u_i32
       case INDEX_op_ext16u_i32: // MemCheck: VgT_ZWiden24
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
 
           if (arg1)
             tcg_gen_ext16u_i32(arg0, arg1);
@@ -1843,11 +1845,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext16u_i32 */
 #if TCG_TARGET_HAS_bswap16_i32
       case INDEX_op_bswap16_i32: // MemCheck: UifU2
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
 
           if (arg1)
             tcg_gen_bswap16_i32(arg0, arg1);
@@ -1858,11 +1860,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_bswap16_i32 */
 #if TCG_TARGET_HAS_bswap32_i32
       case INDEX_op_bswap32_i32: // MemCheck: UifU4
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
 
           if (arg1)
             tcg_gen_bswap32_i32(arg0, arg1);
@@ -1873,11 +1875,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_bswap32_i32 */
 #if TCG_TARGET_HAS_not_i32
       case INDEX_op_not_i32: // MemCheck: Nothing! (Returns orig atom)
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
 
           if (arg1)
             tcg_gen_mov_i32(arg0, arg1);
@@ -1888,11 +1890,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_not_i32 */
 #if TCG_TARGET_HAS_neg_i32
       case INDEX_op_neg_i32:
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-2];
-          orig1 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-2];
+          orig1 = tcg_ctx.gen_opparam_ptr[-1];
 
           if (arg1)
             tcg_gen_mov_i32(arg0, arg1);
@@ -1904,26 +1906,26 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_neg_i32 */
 
       case INDEX_op_movi_i64:
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
 #ifdef TARGET_I386
 #define HELPER_SECTION_TWO
 #include "helper_i386_check.h"
 #if 0 // AWH
           /* Check if the constant is a helper function for IN* opcodes */
-          if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inb) ||
-            (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inw) ||
-            (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inl) )
+          if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inb) ||
+            (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inw) ||
+            (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inl) )
             in_helper_func = 1;
 
           /* Check if the constant is a helper function for OUT* opcodes */
-          else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outb) ||
-            (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outw) ||
-            (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outl) )
+          else if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outb) ||
+            (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outw) ||
+            (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outl) )
             out_helper_func = 1;
 
           /* Check if the constant is the helper function for CMPXCHG */
-          else if (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_DECAF_taint_cmpxchg)
+          else if (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_DECAF_taint_cmpxchg)
             cmpxchg_helper_func = 1;
 #endif // AWH
 #endif /* TARGET_I386 */
@@ -1932,8 +1934,8 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_mov_i64:
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
-        arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+        arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
         if (arg0) {
           if (arg1)
             tcg_gen_mov_i64(arg0, arg1);
@@ -1944,10 +1946,10 @@ static inline int gen_taintcheck_insn(int search_pc)
 
       /* Arithmethic/shift/rotate operations (64 bit). */
       case INDEX_op_setcond_i64: // All-Around: UifU64() (mkLazy())
-        arg0 = find_shadow_arg(gen_opparam_ptr[-4]); // Output
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]); // Output
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-3]); // Input1
-          arg2 = find_shadow_arg(gen_opparam_ptr[-2]); // Input2
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]); // Input1
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]); // Input2
 
           if (arg1 && arg2) {
             t0 = tcg_temp_new_i64();
@@ -1975,11 +1977,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 
 #ifdef TCG_BITWISE_TAINT
       case INDEX_op_shl_i64: // Special - scalarShift()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-1];
           if (!arg1 && !arg2) {
             tcg_gen_movi_i64(arg0, 0);
             break;
@@ -2000,7 +2002,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           if (arg1) {
             // Perform the SHL on arg1
-        	tcg_gen_shl_i64(t0, arg1, orig0);// tcg_gen_shl_i64(t0, arg1, gen_opparam_ptr[-1]);
+        	tcg_gen_shl_i64(t0, arg1, orig0);// tcg_gen_shl_i64(t0, arg1, tcg_ctx.gen_opparam_ptr[-1]);
             // OR together the taint of shifted arg1 (t0) and arg2 (t2)
             tcg_gen_or_i64(arg0, t0, t2);
           } else
@@ -2009,11 +2011,11 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_shr_i64: // Special - scalarShift()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-1];
           if (!arg1 && !arg2) {
             tcg_gen_movi_i64(arg0, 0);
             break;
@@ -2034,7 +2036,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           if (arg1) {
             // Perform the SHR on arg1
-        	  tcg_gen_shr_i64(t0, arg1, orig0);//tcg_gen_shr_i64(t0, arg1, gen_opparam_ptr[-1]);
+        	  tcg_gen_shr_i64(t0, arg1, orig0);//tcg_gen_shr_i64(t0, arg1, tcg_ctx.gen_opparam_ptr[-1]);
             // OR together the taint of shifted arg1 (t0) and arg2 (t2)
             tcg_gen_or_i64(arg0, t0, t2);
           } else
@@ -2043,11 +2045,11 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_sar_i64: // Special - scalarShift()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-1];
           if (!arg1 && !arg2) {
             tcg_gen_movi_i64(arg0, 0);
             break;
@@ -2068,7 +2070,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           if (arg1) {
             // Perform the SAR on arg1
-            tcg_gen_sar_i64(t0, arg1, orig0);//tcg_gen_sar_i64(t0, arg1, gen_opparam_ptr[-1]);
+            tcg_gen_sar_i64(t0, arg1, orig0);//tcg_gen_sar_i64(t0, arg1, tcg_ctx.gen_opparam_ptr[-1]);
             // OR together the taint of shifted arg1 (t0) and arg2 (t2)
             tcg_gen_or_i64(arg0, t0, t2);
           } else
@@ -2078,11 +2080,11 @@ static inline int gen_taintcheck_insn(int search_pc)
 
 #if TCG_TARGET_HAS_rot_i64
       case INDEX_op_rotl_i64: // Special - MemCheck does lazy, but we shift
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-1];
           if (!arg1 && !arg2) {
             tcg_gen_movi_i64(arg0, 0);
             break;
@@ -2103,7 +2105,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 
           if (arg1) {
             // Perform the ROTL on arg1
-        	  tcg_gen_rotl_i64(t0, arg1, orig0);//tcg_gen_rotl_i64(t0, arg1, gen_opparam_ptr[-1]);
+        	  tcg_gen_rotl_i64(t0, arg1, orig0);//tcg_gen_rotl_i64(t0, arg1, tcg_ctx.gen_opparam_ptr[-1]);
             // OR together the taint of shifted arg1 (t0) and arg2 (t2)
             tcg_gen_or_i64(arg0, t0, t2);
           } else
@@ -2112,11 +2114,11 @@ static inline int gen_taintcheck_insn(int search_pc)
         break;
 
       case INDEX_op_rotr_i64: // Special - MemCheck does lazy, but we shift
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-1];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-1];
           if (!arg1 && !arg2) {
             tcg_gen_movi_i64(arg0, 0);
             break;
@@ -2137,7 +2139,7 @@ static inline int gen_taintcheck_insn(int search_pc)
         
           if (arg1) {
             // Perform the ROTL on arg1
-        	  tcg_gen_rotr_i64(t0, arg1, orig0);//tcg_gen_rotr_i64(t0, arg1, gen_opparam_ptr[-1]);
+        	  tcg_gen_rotr_i64(t0, arg1, orig0);//tcg_gen_rotr_i64(t0, arg1, tcg_ctx.gen_opparam_ptr[-1]);
             // OR together the taint of shifted arg1 (t0) and arg2 (t2)
             tcg_gen_or_i64(arg0, t0, t2);
           } else
@@ -2148,22 +2150,22 @@ static inline int gen_taintcheck_insn(int search_pc)
  // AWH - expensiveAddSub() for add_i64/or_i64 are buggy, use cheap one
       /* T0 = (T1 | T2) | ((V1_min + V2_min) ^ (V1_max + V2_max)) */
       case INDEX_op_add_i64: // Special - expensiveAddSub()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
           //LOK: Changed the names of orig0 and orig 1 to orig1 and 2
           // so I don't get confused
           // Basically arg is vxx and orig is x
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           //make sure we have a copy of the values first
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           //delete the original operation
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
 
           //LOK: Declared the new temporary variables that we need
           t0 = tcg_temp_new_i64(); //scratch
@@ -2205,7 +2207,7 @@ static inline int gen_taintcheck_insn(int search_pc)
 
       /* T0 = (T1 | T2) | ((V1_min - V2_max) ^ (V1_max - V2_min)) */
       case INDEX_op_sub_i64: // Special - expensiveAddSub()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
           //NOTE: It is important that we get the order of the operands correct
           // Right now, the assumption is
@@ -2215,17 +2217,17 @@ static inline int gen_taintcheck_insn(int search_pc)
           //LOK: Changed the names of orig0 and orig 1 to orig1 and 2
           // so I don't get confused
           // Basically arg is vxx and orig is x
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           //make sure we have a copy of the values first
-          orig0 = gen_opparam_ptr[-3];
-          orig1 = gen_opparam_ptr[-2];
-          orig2 = gen_opparam_ptr[-1];
+          orig0 = tcg_ctx.gen_opparam_ptr[-3];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
+          orig2 = tcg_ctx.gen_opparam_ptr[-1];
 
           //delete the original operation
-          gen_opparam_ptr -= 3;
-          gen_opc_ptr--;
+          tcg_ctx.gen_opparam_ptr -= 3;
+          tcg_ctx.gen_opc_ptr--;
          
           //LOK: Declared the new temporary variables that we need
           t0 = tcg_temp_new_i64(); //scratch
@@ -2269,10 +2271,10 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_sub_i64: // Up - cheap_AddSub64
 #endif
       case INDEX_op_mul_i64: // Up - mkUifU64(), mkLeft64(), mkPCastTo()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           if (!arg1 && !arg2) {
             tcg_gen_movi_i64(arg0, 0);
@@ -2302,12 +2304,12 @@ static inline int gen_taintcheck_insn(int search_pc)
 #if TCG_TARGET_HAS_andc_i64
       case INDEX_op_andc_i64: // Special - and_or_ty()
 #endif /* TCG_TARGET_HAS_andc_i64 */
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-1];
-          orig1 = gen_opparam_ptr[-2];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-1];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
 
           if (!arg1 && !arg2) {
             tcg_gen_movi_i64(arg0, 0);
@@ -2319,15 +2321,15 @@ static inline int gen_taintcheck_insn(int search_pc)
           t2 = tcg_temp_new_i64();
           t3 = tcg_temp_new_i64();
           /* T1 -> arg1
-             V1 -> gen_opparam_ptr[-2]
+             V1 -> tcg_ctx.gen_opparam_ptr[-2]
              T2 -> arg2
-             V2 -> gen_opparam_ptr[-1] */
+             V2 -> tcg_ctx.gen_opparam_ptr[-1] */
           if (arg1)
             tcg_gen_not_i64(t0, arg1); // NOT T1
           else
             tcg_gen_movi_i64(t0, -1);
           if (arg2)
-        	  tcg_gen_and_i64(t1, orig1, arg2);//tcg_gen_and_i64(t1, gen_opparam_ptr[-2], arg2); // V1 * T2
+        	  tcg_gen_and_i64(t1, orig1, arg2);//tcg_gen_and_i64(t1, tcg_ctx.gen_opparam_ptr[-2], arg2); // V1 * T2
           else
             tcg_gen_movi_i64(t1, 0);
           tcg_gen_and_i64(t2, t0, t1); // (NOT T1) * V1 * T2
@@ -2337,7 +2339,7 @@ static inline int gen_taintcheck_insn(int search_pc)
           else
             tcg_gen_movi_i64(t0, -1);
           if (arg1)
-        	  tcg_gen_and_i64(t1, arg1, orig0);//tcg_gen_and_i64(t1, arg1, gen_opparam_ptr[-1]); // T1 * V2
+        	  tcg_gen_and_i64(t1, arg1, orig0);//tcg_gen_and_i64(t1, arg1, tcg_ctx.gen_opparam_ptr[-1]); // T1 * V2
           else
             tcg_gen_movi_i64(t1, 0);
           tcg_gen_and_i64(t3, t0, t1); // (T1 * (NOT T2) * V2)
@@ -2360,12 +2362,12 @@ static inline int gen_taintcheck_insn(int search_pc)
 #if TCG_TARGET_HAS_orc_i64
       case INDEX_op_orc_i64: // Special - and_or_ty()
 #endif /* TCG_TARGET_HAS_orc_i64 */
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
-          orig0 = gen_opparam_ptr[-1];
-          orig1 = gen_opparam_ptr[-2];
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
+          orig0 = tcg_ctx.gen_opparam_ptr[-1];
+          orig1 = tcg_ctx.gen_opparam_ptr[-2];
           if (!arg1 && !arg2) {
             tcg_gen_movi_i64(arg0, 0);
             break;
@@ -2376,14 +2378,14 @@ static inline int gen_taintcheck_insn(int search_pc)
           t2 = tcg_temp_new_i64();
           t3 = tcg_temp_new_i64();
           /* T1 -> arg1
-             V1 -> gen_opparam_ptr[-2]
+             V1 -> tcg_ctx.gen_opparam_ptr[-2]
              T2 -> arg2
-             V2 -> gen_opparam_ptr[-1] */
+             V2 -> tcg_ctx.gen_opparam_ptr[-1] */
           if (arg1)
             tcg_gen_not_i64(t0, arg1); // NOT T1
           else
             tcg_gen_movi_i64(t0, -1);
-          tcg_gen_not_i64(t1, orig1);//tcg_gen_not_i64(t1, gen_opparam_ptr[-2]); // NOT V1
+          tcg_gen_not_i64(t1, orig1);//tcg_gen_not_i64(t1, tcg_ctx.gen_opparam_ptr[-2]); // NOT V1
           tcg_gen_and_i64(t2, t0, t1); // (NOT T1) * (NOT V1)
           if (arg2)
             tcg_gen_and_i64(t0, t2, arg2); // (NOT T1) * (NOT V1) * T2
@@ -2394,7 +2396,7 @@ static inline int gen_taintcheck_insn(int search_pc)
             tcg_gen_not_i64(t1, arg2); // NOT T2
           else
             tcg_gen_movi_i64(t1, -1);
-          tcg_gen_not_i64(t2, orig0);//tcg_gen_not_i64(t2, gen_opparam_ptr[-1]); // NOT V2
+          tcg_gen_not_i64(t2, orig0);//tcg_gen_not_i64(t2, tcg_ctx.gen_opparam_ptr[-1]); // NOT V2
           tcg_gen_and_i64(t3, t1, t2); // (NOT T2) * (NOT V2)
           if (arg1)
             tcg_gen_and_i64(t1, t3, arg1); // (NOT T2) * (NOT V2) * T1
@@ -2445,10 +2447,10 @@ static inline int gen_taintcheck_insn(int search_pc)
 #if TCG_TARGET_HAS_nor_i64
       case INDEX_op_nor_i64:
 #endif /* TCG_TARGET_HAS_nor_i64 */
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           if (!arg1 && !arg2) {
             tcg_gen_movi_i32(arg0, 0);
@@ -2474,10 +2476,10 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_eqv_i64: // In-Place - mkUifU64
 #endif /* TCG_TARGET_HAS_eqv_i64 */
       case INDEX_op_xor_i64: // In-Place - mkUifU64
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
 
           if (arg1 && arg2)
             // Perform an OR on arg1 and arg2 to find taint
@@ -2496,10 +2498,10 @@ static inline int gen_taintcheck_insn(int search_pc)
       case INDEX_op_divu_i64: // All-around: mkLazy2()
       case INDEX_op_rem_i64: // All-around: mkLazy2()
       case INDEX_op_remu_i64: // All-around: mkLazy2()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg2 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
     
           if (!arg1 && !arg2) {
             tcg_gen_movi_i64(arg0, 0);
@@ -2524,12 +2526,12 @@ static inline int gen_taintcheck_insn(int search_pc)
 #if TCG_TARGET_HAS_div2_i64
       case INDEX_op_div2_i64: // All-around: mkLazy3()
       case INDEX_op_divu2_i64: // All-around: mkLazy3()
-        arg0 = find_shadow_arg(gen_opparam_ptr[-5]);
-        arg1 = find_shadow_arg(gen_opparam_ptr[-4]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-5]);
+        arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]);
         if (arg0 && arg1) {
-          arg2 = find_shadow_arg(gen_opparam_ptr[-3]);
-          arg3 = find_shadow_arg(gen_opparam_ptr[-2]);
-          arg4 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]);
+          arg3 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
+          arg4 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           t0 = tcg_temp_new_i64();
           t1 = tcg_temp_new_i64();
           t2 = tcg_temp_new_i64();
@@ -2557,16 +2559,16 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_div2_i64 */
 #if TCG_TARGET_HAS_deposit_i64
       case INDEX_op_deposit_i64: // Always bitwise taint
-        arg0 = find_shadow_arg(gen_opparam_ptr[-5]); // Output
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-5]); // Output
         if (arg0) {
           int pos, len; // Constant parameters
 
-          arg1 = find_shadow_arg(gen_opparam_ptr[-4]); // Input1
-          arg2 = find_shadow_arg(gen_opparam_ptr[-3]); // Input2
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]); // Input1
+          arg2 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-3]); // Input2
 
           // Pull out the two constant parameters
-          pos = gen_opparam_ptr[-2]; // Position of mask
-          len = gen_opparam_ptr[-1]; // Length of mask
+          pos = tcg_ctx.gen_opparam_ptr[-2]; // Position of mask
+          len = tcg_ctx.gen_opparam_ptr[-1]; // Length of mask
 
           // Handle special 64-bit transfer case (copy arg2 taint)
           if (len == 64) {
@@ -2600,9 +2602,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 
 #if TCG_TARGET_HAS_ext8s_i64
       case INDEX_op_ext8s_i64: // MemCheck: VgT_SWiden18
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_ext8s_i64(arg0, arg1);
           else
@@ -2612,9 +2614,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext8s_i64 */
 #if TCG_TARGET_HAS_ext16s_i64
       case INDEX_op_ext16s_i64: // MemCheck: VgT_SWiden28
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_ext16s_i64(arg0, arg1);
           else
@@ -2624,9 +2626,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext16s_i64 */
 #if TCG_TARGET_HAS_ext32s_i64
       case INDEX_op_ext32s_i64: // MemCheck: VgT_SWiden48
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_ext32s_i64(arg0, arg1);
           else
@@ -2636,9 +2638,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext32s_i64 */
 #if TCG_TARGET_HAS_ext8u_i64
       case INDEX_op_ext8u_i64: // MemCheck: VgT_ZWiden18
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_ext8u_i64(arg0, arg1);
           else
@@ -2648,9 +2650,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext8u_i64 */
 #if TCG_TARGET_HAS_ext16u_i64
       case INDEX_op_ext16u_i64: // MemCheck: VgT_ZWiden28
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_ext16u_i64(arg0, arg1);
           else
@@ -2660,9 +2662,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext16u_i64 */
 #if TCG_TARGET_HAS_ext32u_i64
       case INDEX_op_ext32u_i64: // MemCheck: VgT_ZWiden48
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_ext32u_i64(arg0, arg1);
           else
@@ -2672,9 +2674,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_ext32u_i64 */
 #if TCG_TARGET_HAS_bswap16_i64
       case INDEX_op_bswap16_i64: // MemCheck: UifU2
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_bswap16_i64(arg0, arg1);
           else
@@ -2684,9 +2686,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_bswap16_i64 */
 #if TCG_TARGET_HAS_bswap32_i64
       case INDEX_op_bswap32_i64: // MemCheck: UifU4
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_bswap32_i64(arg0, arg1);
           else
@@ -2696,9 +2698,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_bswap32_i64 */
 #if TCG_TARGET_HAS_bswap64_i64
       case INDEX_op_bswap64_i64: // MemCheck: UifU8
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_bswap64_i64(arg0, arg1);
           else
@@ -2708,9 +2710,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_bswap64_i64 */
 #if TCG_TARGET_HAS_not_i64
       case INDEX_op_not_i64: // MemCheck: nothing! Returns orig atom
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_mov_i64(arg0, arg1);
           else
@@ -2721,9 +2723,9 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif /* TCG_TARGET_HAS_not_i64 */
 #if TCG_TARGET_HAS_neg_i64
       case INDEX_op_neg_i64:
-        arg0 = find_shadow_arg(gen_opparam_ptr[-2]);
+        arg0 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-2]);
         if (arg0) {
-          arg1 = find_shadow_arg(gen_opparam_ptr[-1]);
+          arg1 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-1]);
           if (arg1)
             tcg_gen_mov_i64(arg0, arg1);
           else
@@ -2756,9 +2758,9 @@ static inline int gen_taintcheck_insn(int search_pc)
         break; /* No taint info propagated (register liveness gets these) */
       case INDEX_op_DECAF_checkeip:
     	  if (DECAF_is_callback_needed(DECAF_EIP_CHECK_CB)){
-				arg0 = gen_opparam_ptr[-1];//target eip
-				arg1 = gen_opparam_ptr[-2];//source eip
-				TCGv shadow = shadow_arg[arg0];
+				arg0 = tcg_ctx.gen_opparam_ptr[-1];//target eip
+				arg1 = tcg_ctx.gen_opparam_ptr[-2];//source eip
+				TCGv shadow = shadow_arg[(int)arg0];
 				if (shadow != 0) {
 					set_con_i32(0, arg1);
 					set_con_i32(1, arg0);
@@ -2788,12 +2790,12 @@ int retVal;
 #ifdef USE_TCG_OPTIMIZATIONS    
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP_OPT))) {
         qemu_log("OP partial buffer before optimization:\n");
-        tcg_dump_ops(&tcg_ctx, logfile);
+        tcg_dump_ops(&tcg_ctx);
         qemu_log("\n");
     }
 
-    gen_opparam_ptr =
-        tcg_optimize(&tcg_ctx, gen_opc_ptr, gen_opparam_buf, tcg_op_defs);
+    tcg_ctx.gen_opparam_ptr =
+        tcg_optimize(&tcg_ctx, tcg_ctx.gen_opc_ptr, gen_opparam_buf, tcg_op_defs);
 #if 0 // AWH - Causes phantom taint in tempidx, so remove for now
     build_liveness_metadata(&tcg_ctx);
 #endif // AWH
@@ -2808,14 +2810,16 @@ int retVal;
 
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP_OPT))) {
         qemu_log("OP partial buffer before taint instrumentation\n");
-        tcg_dump_ops(&tcg_ctx, logfile);
+        tcg_dump_ops(&tcg_ctx);
+        //tcg_dump_ops(&tcg_ctx, logfile);
         qemu_log("\n");
     }
 
     retVal = gen_taintcheck_insn(search_pc);
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP))) {
         qemu_log("OP after taint instrumentation\n");
-        tcg_dump_ops(&tcg_ctx, logfile);
+        tcg_dump_ops(&tcg_ctx);
+        //tcg_dump_ops(&tcg_ctx, logfile);
         qemu_log("\n");
     }
 
@@ -2831,12 +2835,12 @@ static void build_liveness_metadata(TCGContext *s)
     uint8_t *dead_temps;
     unsigned int dead_args;
 
-    nb_ops = gen_opc_ptr - gen_opc_buf;
+    nb_ops = tcg_ctx.gen_opc_ptr - gen_opc_buf;
 
     dead_temps = tcg_malloc(s->nb_temps);
     memset(dead_temps, 1, s->nb_temps);
 
-    args = gen_opparam_ptr;
+    args = tcg_ctx.gen_opparam_ptr;
     op_index = nb_ops - 1;
     while (op_index >= 0) {
 //fprintf(stderr, "op_index: %d\n", op_index);

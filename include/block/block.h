@@ -549,7 +549,7 @@ void bdrv_flush_io_queue(BlockDriverState *bs);
 BlockAcctStats *bdrv_get_stats(BlockDriverState *bs);
 
 #ifdef __cplusplus
-extern "C" {
+}
 #endif // __cplusplus
 
 #endif

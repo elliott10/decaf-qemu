@@ -31,39 +31,39 @@
   clean_edx_after = clean_esp_after = 0; 
   clean_tempidx_before = 1;
   /* Check if the constant is a helper function for IN* opcodes */
-  if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inb) ||
-    (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inw) ||
-    (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inl) )
+  if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inb) ||
+    (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inw) ||
+    (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_inl) )
   {
     in_helper_func = 1;
     clean_tempidx_before = 0;
     //fprintf(stderr, "helper_in*() found\n");
   }
   /* Check if the constant is a helper function for OUT* opcodes */
-  else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outb) ||
-    (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outw) ||
-    (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outl) )
+  else if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outb) ||
+    (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outw) ||
+    (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_outl) )
   {
     out_helper_func = 1;
     clean_tempidx_before = 0;
     //fprintf(stderr, "helper_out*() found\n");
   }
   /* Check if the constant is a helper function for CMPXCHG */
-  else if (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_DECAF_taint_cmpxchg)
+  else if (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_DECAF_taint_cmpxchg)
   {
     clean_eax_after = 1;
     //fprintf(stderr, "helper_cmpxchg() found\n");
   }
   /* Check if the constant is a helper function for RDMSR or RDTSC */
-  else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_rdmsr) ||
-    (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_rdtsc) )
+  else if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_rdmsr) ||
+    (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_rdtsc) )
   {
     clean_eax_after = 1;
     clean_edx_after = 1;
     //fprintf(stderr, "helper_rdmsr/rdtsc() found\n");
   }
   /* Check if the constant is a helper function for RDTSCP */
-  else if (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_rdtscp)
+  else if (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_rdtscp)
   {
     clean_eax_after = 1;
     clean_ecx_after = 1;
@@ -71,7 +71,7 @@
     //fprintf(stderr, "helper_rdtscp() found\n");
   }
   /* Check if the constant is a helper function for CPUID */
-  else if (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_cpuid)
+  else if (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_cpuid)
   {
     clean_eax_after = 1;
     clean_ebx_after = 1;
@@ -80,28 +80,28 @@
     //fprintf(stderr, "helper_cpuid() found\n");
   }
   /* Check if the constant is a helper function for SYSEXIT */
-  else if (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_sysexit)
+  else if (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_sysexit)
   {
     sysexit_helper_func = 1;
     //fprintf(stderr, "helper_sysexit() found\n");
   }
   /* Check if the constant is a helper function for IDIVB/DIVB */
-  else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_divb_AL) ||
-    (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_idivb_AL) )
+  else if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_divb_AL) ||
+    (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_idivb_AL) )
   {
     divb_helper_func = 1;
     //fprintf(stderr, "helper_*divb() found\n");
   }
   /* Check if the constant is a helper function for IDIVW/DIVW */
-  else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_divw_AX) ||
-    (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_idivw_AX) )
+  else if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_divw_AX) ||
+    (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_idivw_AX) )
   {
     divw_helper_func = 1;
     //fprintf(stderr, "helper_*divw() found\n");
   }
   /* Check if the constant is a helper function for IDIVL/DIVL */
-  else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_divl_EAX) ||
-    (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_idivl_EAX) )
+  else if ( (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_divl_EAX) ||
+    (tcg_ctx.gen_opparam_ptr[-1] == (tcg_target_ulong)helper_idivl_EAX) )
   {
     divl_helper_func = 1;
     //fprintf(stderr, "helper_*divl() found\n");
@@ -117,19 +117,19 @@
     {
       /* Backup the op_call args */
       for (i=0; i < nb_args; i++)
-        backup_orig[i] = gen_opparam_ptr[-(i+1)];
+        backup_orig[i] = tcg_ctx.gen_opparam_ptr[-(i+1)];
 
       /* Any helper functions that need to grab shadow registers for
         op_call parms should do that here. */
       if (out_helper_func)
       { 
         /* Find the shadow for the data input */
-        arg6 = find_shadow_arg(gen_opparam_ptr[-4]);
+        arg6 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]);
       }
 
       /* Back up in the opcode stream */
-      gen_opparam_ptr -= nb_args;
-      gen_opc_ptr--;
+      tcg_ctx.gen_opparam_ptr -= nb_args;
+      tcg_ctx.gen_opc_ptr--;
     
 #if 0 // AWH  
       /* Check if this is a call to an OUT helper function. If so, we need 
@@ -138,18 +138,18 @@
       if (out_helper_func) {
 
         // Back up call arguments
-        arg5 = gen_opparam_ptr[-6]; // Const/in/out encoding
-        arg4 = gen_opparam_ptr[-5]; // (I) Port
-        arg3 = gen_opparam_ptr[-4]; // (I) Data
-        arg2 = gen_opparam_ptr[-3]; // (I) Register with function address
-        arg1 = gen_opparam_ptr[-2]; // (C) Flags
-        arg0 = gen_opparam_ptr[-1]; // (C) ?
+        arg5 = tcg_ctx.gen_opparam_ptr[-6]; // Const/in/out encoding
+        arg4 = tcg_ctx.gen_opparam_ptr[-5]; // (I) Port
+        arg3 = tcg_ctx.gen_opparam_ptr[-4]; // (I) Data
+        arg2 = tcg_ctx.gen_opparam_ptr[-3]; // (I) Register with function address
+        arg1 = tcg_ctx.gen_opparam_ptr[-2]; // (C) Flags
+        arg0 = tcg_ctx.gen_opparam_ptr[-1]; // (C) ?
 
         // Find the shadow for the data input
-        arg6 = find_shadow_arg(gen_opparam_ptr[-4]);
+        arg6 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]);
         // Back up the instruction/arg stream so that we can patch
-        gen_opparam_ptr -= 6;
-        gen_opc_ptr--;
+        tcg_ctx.gen_opparam_ptr -= 6;
+        tcg_ctx.gen_opc_ptr--;
 #endif
         /* Insert whatever needs to go before the op_call in the 
           opcode stream */
@@ -174,20 +174,20 @@
       }
 
       /* Manually reinsert the CALL opcode */
-      *(gen_opc_ptr++) = INDEX_op_call;
-      gen_opparam_ptr += nb_args;
+      *(tcg_ctx.gen_opc_ptr++) = INDEX_op_call;
+      tcg_ctx.gen_opparam_ptr += nb_args;
       for(i=0; i < nb_args; i++)
       {
-        gen_opparam_ptr[-(i+1)] = backup_orig[i];
+        tcg_ctx.gen_opparam_ptr[-(i+1)] = backup_orig[i];
       }
 #if 0 // AWH
-      gen_opparam_ptr += 6;
-      gen_opparam_ptr[-6] = arg5;
-      gen_opparam_ptr[-5] = arg4;
-      gen_opparam_ptr[-4] = arg3;
-      gen_opparam_ptr[-3] = arg2;
-      gen_opparam_ptr[-2] = arg1;
-      gen_opparam_ptr[-1] = arg0;
+      tcg_ctx.gen_opparam_ptr += 6;
+      tcg_ctx.gen_opparam_ptr[-6] = arg5;
+      tcg_ctx.gen_opparam_ptr[-5] = arg4;
+      tcg_ctx.gen_opparam_ptr[-4] = arg3;
+      tcg_ctx.gen_opparam_ptr[-3] = arg2;
+      tcg_ctx.gen_opparam_ptr[-2] = arg1;
+      tcg_ctx.gen_opparam_ptr[-1] = arg0;
 #endif // AWH
     }
 
@@ -266,7 +266,7 @@
       /* Load EAX into t0 */
       tcg_gen_ld_tl(t0, cpu_env, offsetof(OurCPUState,taint_regs[R_EAX]));
       /* Load denominator arg into t3 */
-      t3 = find_shadow_arg(gen_opparam_ptr[-4]);
+      t3 = find_shadow_arg(tcg_ctx.gen_opparam_ptr[-4]);
       if (!divb_helper_func)
       {
         /* Load EDX into t1 */

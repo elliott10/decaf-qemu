@@ -537,17 +537,20 @@ static void tlb_call_back(DECAF_Callback_Params *temp)
 static uint32_t get_kpcr(void)
 {
 	uint32_t kpcr = 0, selfpcr = 0;
-	CPUArchState *env;
+	CPUArchState *env1;
+	CPUState *env = ENV_GET_CPU(env1);
 
-	for (env = first_cpu; env != NULL; env = env->next_cpu) {
+	//for (env = first_cpu; env != NULL; env = env->next_cpu) {
+	CPU_FOREACH(env)
+	{
 		if (env->cpu_index == 0) {
 			break;
 		}
 	}
 
-	DECAF_read_mem(env, env->segs[R_FS].base + 0x1c, 4, &selfpcr);
+	DECAF_read_mem(env1, env1->segs[R_FS].base + 0x1c, 4, &selfpcr);
 
-	if (selfpcr == env->segs[R_FS].base) {
+	if (selfpcr == env1->segs[R_FS].base) {
 		kpcr = selfpcr;
 	}
 
@@ -679,9 +682,10 @@ int find_winxpsp3(CPUArchState *_env, uintptr_t insn_handle) {
 void check_procexit(void *)
 {
 	/* AWH - cpu_single_env is invalid outside of the main exec thread */
-	CPUArchState *env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
-	qemu_mod_timer(recon_timer,
-			qemu_get_clock_ns(vm_clock) + get_ticks_per_sec() * 10);
+	CPUState *cpu = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
+	CPUArchState *env = (CPUArchState *)cpu->env_ptr;
+	timer_mod(recon_timer,
+			qemu_clock_get_ns(vm_clock) + get_ticks_per_sec() * 10);
 	//monitor_printf(default_mon, "Checking for proc exits...\n");
 
 	uint32_t end_time[2];
@@ -716,9 +720,9 @@ void win_vmi_init()
 	kernel_proc->pid = 0;
 	VMI_create_process(kernel_proc);
 
-	recon_timer = qemu_new_timer_ns(vm_clock, check_procexit, 0);
-	qemu_mod_timer(recon_timer,
-			qemu_get_clock_ns(vm_clock) + get_ticks_per_sec() * 30);
+	recon_timer = timer_new_ns(vm_clock, check_procexit, 0);
+	timer_mod(recon_timer,
+			qemu_clock_get_ns(vm_clock) + get_ticks_per_sec() * 30);
 
 }
 

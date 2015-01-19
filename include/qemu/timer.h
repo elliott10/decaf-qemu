@@ -65,6 +65,10 @@ struct QEMUTimer {
 
 extern QEMUTimerListGroup main_loop_tlg;
 
+//typedef struct QEMUClock QEMUClock;
+//extern QEMUClock *vm_clock;
+extern QEMUClockType vm_clock;
+
 /*
  * QEMUClockType
  */

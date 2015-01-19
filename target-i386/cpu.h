@@ -846,7 +846,7 @@ typedef struct CPUX86State {
 #endif /* CONFIG_TCG_TAINT */
     target_ulong eip;
     target_ulong eflags; /* eflags register. During CPU emulation, CC
-                        flags and DF are set to zero because they are
+                       flags and DF are set to zero because they are
                         stored elsewhere */
 
     /* emulator internal eflags handling */

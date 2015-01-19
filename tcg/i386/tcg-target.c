@@ -2699,6 +2699,19 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
         break;
 
 #ifdef CONFIG_TCG_TAINT
+    case INDEX_op_taint_qemu_ld_i32:
+        tcg_out_taint_qemu_ld(s, args, 0);
+        break;
+    case INDEX_op_taint_qemu_ld_i64:
+        tcg_out_taint_qemu_ld(s, args, 1);
+        break;
+    case INDEX_op_taint_qemu_st_i32:
+        tcg_out_taint_qemu_st(s, args, 0);
+        break;
+    case INDEX_op_taint_qemu_st_i64:
+        tcg_out_qemu_st(s, args, 1);
+        break;
+/*
     case INDEX_op_taint_qemu_ld8u:
 	tcg_out_taint_qemu_ld(s, args, 0);
 	break;
@@ -2733,8 +2746,8 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
     case INDEX_op_taint_qemu_st64:
 	tcg_out_taint_qemu_st(s, args, 3);
 	break;
+*/
 #endif /* CONFIG_TCG_TAINT */
-
 
 #if TCG_TARGET_REG_BITS == 32
     case INDEX_op_brcond2_i32:
@@ -2945,45 +2958,55 @@ static const TCGTargetOpDef x86_op_defs[] = {
     { INDEX_op_qemu_ld_i64, { "r", "r", "L", "L" } },
     { INDEX_op_qemu_st_i64, { "L", "L", "L", "L" } },
 #endif
+
 #ifdef CONFIG_TCG_TAINT
 #if TCG_TARGET_REG_BITS == 64 // 64-bit host, 32/64-bit guest
+    /*
     { INDEX_op_taint_qemu_ld8u, { "r", "L" } },
     { INDEX_op_taint_qemu_ld8s, { "r", "L" } },
     { INDEX_op_taint_qemu_ld16u, { "r", "L" } },
     { INDEX_op_taint_qemu_ld16s, { "r", "L" } },
     { INDEX_op_taint_qemu_ld32, { "r", "L" } },
     { INDEX_op_taint_qemu_ld32u, { "r", "L" } },
-    { INDEX_op_taint_qemu_ld32s, { "r", "L" } },
-    { INDEX_op_taint_qemu_ld64, { "r", "L" } },
-
+    */
+    { INDEX_op_taint_qemu_ld_i32, { "r", "L" } },
+    { INDEX_op_taint_qemu_ld_i64, { "r", "L" } },
+/*
     { INDEX_op_taint_qemu_st8, { "L", "L" } },
     { INDEX_op_taint_qemu_st16, { "L", "L" } },
-    { INDEX_op_taint_qemu_st32, { "L", "L" } },
-    { INDEX_op_taint_qemu_st64, { "L", "L" } },
+    */
+    { INDEX_op_taint_qemu_st_i32, { "L", "L" } },
+    { INDEX_op_taint_qemu_st_i64, { "L", "L" } },
 #elif TARGET_LONG_BITS <= TCG_TARGET_REG_BITS // 32-bit host, 32-bit guest
+    /*
     { INDEX_op_taint_qemu_ld8u, { "r", "L" } },
     { INDEX_op_taint_qemu_ld8s, { "r", "L" } },
     { INDEX_op_taint_qemu_ld16u, { "r", "L" } },
     { INDEX_op_taint_qemu_ld16s, { "r", "L" } },
-    { INDEX_op_taint_qemu_ld32, { "r", "L" } },
-    { INDEX_op_taint_qemu_ld64, { "r", "r", "L" } },
-
+    */
+    { INDEX_op_taint_qemu_ld_i32, { "r", "L" } },
+    { INDEX_op_taint_qemu_ld_i64, { "r", "r", "L" } },
+/*
     { INDEX_op_taint_qemu_st8, { "cb", "L" } },
     { INDEX_op_taint_qemu_st16, { "L", "L" } },
-    { INDEX_op_taint_qemu_st32, { "L", "L" } },
-    { INDEX_op_taint_qemu_st64, { "L", "L", "L" } },
+    */
+    { INDEX_op_taint_qemu_st_i32, { "L", "L" } },
+    { INDEX_op_taint_qemu_st_i64, { "L", "L", "L" } },
 #else // 32-bit host, 64-bit guest
+    /*
     { INDEX_op_taint_qemu_ld8u, { "r", "L", "L" } },
     { INDEX_op_taint_qemu_ld8s, { "r", "L", "L" } },
     { INDEX_op_taint_qemu_ld16u, { "r", "L", "L" } },
     { INDEX_op_taint_qemu_ld16s, { "r", "L", "L" } },
-    { INDEX_op_taint_qemu_ld32, { "r", "L", "L" } }, 
-    { INDEX_op_taint_qemu_ld64, { "r", "r", "L", "L" } },
-
+    */
+    { INDEX_op_taint_qemu_ld_i32, { "r", "L", "L" } }, 
+    { INDEX_op_taint_qemu_ld_i64, { "r", "r", "L", "L" } },
+/*
     { INDEX_op_taint_qemu_st8, { "cb", "L", "L" } },
     { INDEX_op_taint_qemu_st16, { "L", "L", "L" } },
-    { INDEX_op_taint_qemu_st32, { "L", "L", "L" } },
-    { INDEX_op_taint_qemu_st64, { "L", "L", "L", "L" } },
+    */
+    { INDEX_op_taint_qemu_st_i32, { "L", "L", "L" } },
+    { INDEX_op_taint_qemu_st_i64, { "L", "L", "L", "L" } },
 #endif
 #endif /* CONFIG_TCG_TAINT */
 

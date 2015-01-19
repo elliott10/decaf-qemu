@@ -37,6 +37,14 @@
 
 #define TARGET_LONG_SIZE (TARGET_LONG_BITS / 8)
 
+// xly for decaf
+typedef int16_t target_short ;//__attribute__ ((aligned(TARGET_SHORT_ALIGNMENT)));
+typedef uint16_t target_ushort ;//__attribute__((aligned(TARGET_SHORT_ALIGNMENT)));
+typedef int32_t target_int ;//__attribute__((aligned(TARGET_INT_ALIGNMENT)));
+typedef uint32_t target_uint ;//__attribute__((aligned(TARGET_INT_ALIGNMENT)));
+typedef int64_t target_llong ;//__attribute__((aligned(TARGET_LLONG_ALIGNMENT)));
+typedef uint64_t target_ullong ;//__attribute__((aligned(TARGET_LLONG_ALIGNMENT)));
+
 /* target_ulong is the type of a virtual address */
 #if TARGET_LONG_SIZE == 4
 typedef int32_t target_long;

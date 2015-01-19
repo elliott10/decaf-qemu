@@ -905,9 +905,10 @@ void Linux_tlb_call_back(DECAF_Callback_Params *temp)
 // here we scan the task list in guest OS and sync ours with it
 static void check_procexit(void *) {
         /* AWH - cpu_single_env is invalid outside of the main exec thread */
-	CPUArchState *env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
-	qemu_mod_timer(recon_timer,
-				   qemu_get_clock_ns(vm_clock) + get_ticks_per_sec() * 10);
+	CPUState *cpu = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
+	CPUArchState *env = (CPUArchState *)cpu->env_ptr;
+	timer_mod(recon_timer,
+				   qemu_clock_get_ns(vm_clock) + get_ticks_per_sec() * 10);
 
 	target_ulong next_task = OFFSET_PROFILE.init_task_addr;
 	set<target_ulong> live_pids;
@@ -1024,10 +1025,19 @@ void linux_vmi_init()
 {
 
 	DECAF_register_callback(DECAF_TLB_EXEC_CB, Linux_tlb_call_back, NULL);
+/*Decaf update:
+int64_t qemu_get_clock_ns(QEMUClock *clock) --> 
+int64_t qemu_clock_get_ns(QEMUClockType type)
 
-	recon_timer = qemu_new_timer_ns(vm_clock, check_procexit, 0);
-	qemu_mod_timer(recon_timer,
-				   qemu_get_clock_ns(vm_clock) + get_ticks_per_sec() * 20);
+static inline QEMUTimer *qemu_new_timer_ns(QEMUClock *clock, QEMUTimerCB *cb, void *opaque) --> 
+static inline QEMUTimer *timer_new_ns(QEMUClockType type, QEMUTimerCB *cb, void *opaque)
+
+void qemu_mod_timer(QEMUTimer *ts, int64_t expire_time) -->
+void timer_mod(QEMUTimer *ts, int64_t expire_time)
+*/
+	recon_timer = timer_new_ns(vm_clock, check_procexit, 0);
+	timer_mod(recon_timer,
+				   qemu_clock_get_ns(vm_clock) + get_ticks_per_sec() * 20);
 
 }
 

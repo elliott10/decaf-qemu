@@ -58,6 +58,8 @@
 
 //#define DEBUG_SUBPAGE
 
+//FILE *logfile;
+
 #ifdef CONFIG_TCG_IR_LOG
 /* AWH - Additional debug insns, callbacks, etc. get added into TBs,
   increasing their size beyond the bare minimum.  So, add some padding
