@@ -555,13 +555,27 @@ static void DECAF_virtdev_write_data(void *opaque, uint32_t addr, uint32_t val) 
 
 }
 
+const MemoryRegionOps DECAF_virtdev_io_ops = { 
+	.read = NULL,
+	.write = DECAF_virtdev_write_data,
+	.impl = { 
+		.min_access_size = 1,
+		.max_access_size = 1,
+	},  
+	.endianness = DEVICE_LITTLE_ENDIAN,
+};
+
 void DECAF_virtdev_init(void) {
-	int res = register_ioport_write(0x68, 1, 1, DECAF_virtdev_write_data,
-			NULL );
+//	int res = register_ioport_write(0x68, 1, 1, DECAF_virtdev_write_data, NULL);
+
+	memory_region_init_io(NULL, NULL, &DECAF_virtdev_io_ops, NULL, "DECAF_virtdev", 1);
+	memory_region_add_subregion(NULL, 0x68, NULL);
+	/*
 	if (res) {
 		fprintf(stderr, "failure on initializing DECAF virtual device\n");
 		exit(-1);
 	}
+	*/
 	if (!(guestlog = fopen("guest.log", "w"))) {
 		fprintf(stderr, "failure on opening guest.log \n");
 		exit(-1);

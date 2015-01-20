@@ -39,12 +39,20 @@ http://code.google.com/p/decaf-platform/
 #include <stdlib.h>
 #include <string.h>
 
+#include "shared/vmi.h"
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 #include "DECAF_main.h"
 #include "DECAF_vm_compress.h"
-#include "hw/hw.h" // AWH
-#include "shared/vmi.h"
 #include "function_map.h"
 #include "shared/hookapi.h"
+
+#include "hw/hw.h" // AWH
+#include "migration/vmstate.h"
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 using namespace std;
 

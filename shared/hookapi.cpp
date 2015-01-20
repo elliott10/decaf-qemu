@@ -33,9 +33,18 @@ http://code.google.com/p/decaf-platform/
 #include <string>
 #include <map>
 #include <list>
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 #include "hw/hw.h"
 #include "qemu/queue.h"
 #include "qemu-common.h" // AWH - QEMUFile
+#include "migration/qemu-file.h"
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
 #include "DECAF_main.h" // AWH
 #include "function_map.h"
 #include "hookapi.h"

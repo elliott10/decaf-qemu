@@ -383,6 +383,21 @@ static inline void tcg_gen_movi_i32(TCGv_i32 ret, int32_t arg)
     tcg_gen_op2i_i32(INDEX_op_movi_i32, ret, arg);
 }
 
+/* helper calls */
+static inline void tcg_gen_helperN(void *func, int flags, int sizemask,
+		TCGArg ret, int nargs, TCGArg *args)
+{
+	TCGv_ptr fn;
+	fn = tcg_const_ptr((tcg_target_long)func);
+	/*
+	tcg_gen_callN(&tcg_ctx, fn, flags, sizemask, ret, 
+			nargs, args);
+	*/
+	tcg_gen_callN(&tcg_ctx, fn, ret, 
+			nargs, args);
+	tcg_temp_free_ptr(fn);
+}
+
 /* 32 bit ops */
 
 static inline void tcg_gen_ld8u_i32(TCGv_i32 ret, TCGv_ptr arg2, tcg_target_long offset)

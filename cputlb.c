@@ -158,7 +158,9 @@ void tlb_reset_dirty_range(CPUTLBEntry *tlb_entry, uintptr_t start,
     }
 }
 
-static inline ram_addr_t qemu_ram_addr_from_host_nofail(void *ptr)
+//xly for decaf
+//static inline ram_addr_t qemu_ram_addr_from_host_nofail(void *ptr)
+ram_addr_t qemu_ram_addr_from_host_nofail(void *ptr)
 {
     ram_addr_t ram_addr;
 

@@ -16,9 +16,9 @@ http://code.google.com/p/decaf-platform/
 #include <assert.h>
 #include <sys/queue.h>
 #include "sysemu.h" // AWH
-#include "qemu-timer.h" // AWH
+#include "qemu/timer.h" // AWH
 #include "hw/hw.h"
-#include "hw/isa.h"		/* for register_ioport_write */
+#include "hw/isa/isa.h"		/* for register_ioport_write */
 #include "blockdev.h" // AWH
 #include "shared/DECAF_main.h" // AWH
 #include "shared/DECAF_callback.h"
@@ -107,16 +107,16 @@ void DECAF_update_cpl(int cpl)
 }
 #endif
 
-
 gpa_t DECAF_get_phys_addr_with_pgd(CPUArchState* env, gpa_t pgd, gva_t addr)
 {
-
-  if (env == NULL)
+	CPUState *cpu = ENV_GET_CPU(env);
+  if (cpu == NULL)
   {
 #ifdef DECAF_NO_FAIL_SAFE
     return (INV_ADDR);
 #else
-    env = cpu_single_env ? cpu_single_env : first_cpu;
+    //env = cpu_single_env ? cpu_single_env : first_cpu;
+    cpu = cpu_single_env ? cpu_single_env : first_cpu;
 #endif
   }
 
@@ -124,7 +124,7 @@ gpa_t DECAF_get_phys_addr_with_pgd(CPUArchState* env, gpa_t pgd, gva_t addr)
   uint32_t phys_addr;
 
   env->cr[3] = pgd;
-  phys_addr = cpu_get_phys_page_debug(env, addr & TARGET_PAGE_MASK);
+  phys_addr = cpu_get_phys_page_debug(cpu, addr & TARGET_PAGE_MASK);
 
   env->cr[3] = saved_cr3;
   return (phys_addr | (addr & (~TARGET_PAGE_MASK)));
@@ -163,6 +163,7 @@ int DECAF_get_page_access(CPUArchState* env, uint32_t addr)
       env = cpu_single_env ? cpu_single_env : first_cpu;
   #endif
     }
+    CPUState* cpu = ENV_GET_CPU(env);
 
     if (env->cr[4] & CR4_PAE_MASK) {
 	uint32_t pdpe_addr, pde_addr, pte_addr;
@@ -170,13 +171,13 @@ int DECAF_get_page_access(CPUArchState* env, uint32_t addr)
 
 	pdpe_addr = ((env->cr[3] & ~0x1f) + ((addr >> 30) << 3)) &
 	    env->a20_mask;
-	pdpe = ldl_phys(pdpe_addr);
+	pdpe = ldl_phys(cpu->as, pdpe_addr);
 	if (!(pdpe & PG_PRESENT_MASK))
 	    return -1;
 
 	pde_addr = ((pdpe & ~0xfff) + (((addr >> 21) & 0x1ff) << 3)) &
 	    env->a20_mask;
-	pde = ldl_phys(pde_addr);
+	pde = ldl_phys(cpu->as, pde_addr);
 	if (!(pde & PG_PRESENT_MASK)) {
 	    return -1;
 	}
@@ -188,7 +189,7 @@ int DECAF_get_page_access(CPUArchState* env, uint32_t addr)
 	/* 4 KB page */
 	pte_addr = ((pde & ~0xfff) + (((addr >> 12) & 0x1ff) << 3)) &
 	    env->a20_mask;
-	pte = ldl_phys(pte_addr);
+	pte = ldl_phys(cpu->as, pte_addr);
 	if (!(pte & PG_PRESENT_MASK))
 	    return -1;
 	return (pte & PG_RW_MASK);
@@ -202,7 +203,7 @@ int DECAF_get_page_access(CPUArchState* env, uint32_t addr)
     /* page directory entry */
     pde_addr =
 	((env->cr[3] & ~0xfff) + ((addr >> 20) & ~3)) & env->a20_mask;
-    pde = ldl_phys(pde_addr);
+    pde = ldl_phys(cpu->as, pde_addr);
     if (!(pde & PG_PRESENT_MASK))
 	return -1;
     if ((pde & PG_PSE_MASK) && (env->cr[4] & CR4_PSE_MASK)) {
@@ -212,7 +213,7 @@ int DECAF_get_page_access(CPUArchState* env, uint32_t addr)
 
     /* page directory entry */
     pte_addr = ((pde & ~0xfff) + ((addr >> 10) & 0xffc)) & env->a20_mask;
-    pte = ldl_phys(pte_addr);
+    pte = ldl_phys(cpu->as, pte_addr);
     if (!(pte & PG_PRESENT_MASK))
 	return -1;
 

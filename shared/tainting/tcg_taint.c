@@ -9,13 +9,22 @@
 #include <inttypes.h>
 #include <signal.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 #include "tcg.h"
-#include "tainting/tcg_taint.h"
+#include "tcg/tcg-op.h"
+#ifdef __cplusplus
+};
+#endif /* __cplusplus */
 
+#include "tainting/tcg_taint.h"
 #include "tainting/taint_memory.h"
 #include "config-target.h"
 
-#include "helper.h" // Taint helper functions, plus I386 IN/OUT helpers
+//xly for decaf 
+//#include "helper.h" // Taint helper functions, plus I386 IN/OUT helpers
+
 #include "DECAF_callback_common.h"
 #include "DECAF_callback_to_QEMU.h"
 
