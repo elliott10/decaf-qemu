@@ -182,6 +182,29 @@ uint16_t helper_ldw_cmmu(CPUArchState *env, target_ulong addr, int mmu_idx);
 uint32_t helper_ldl_cmmu(CPUArchState *env, target_ulong addr, int mmu_idx);
 uint64_t helper_ldq_cmmu(CPUArchState *env, target_ulong addr, int mmu_idx);
 
+
+#ifdef CONFIG_TCG_TAINT
+uint8_t taint_helper_ldb_mmu(CPUArchState *env, target_ulong addr, int mmu_idx);
+uint16_t taint_helper_ldw_mmu(CPUArchState *env, target_ulong addr, int mmu_idx);
+uint32_t taint_helper_ldl_mmu(CPUArchState *env, target_ulong addr, int mmu_idx);
+uint64_t taint_helper_ldq_mmu(CPUArchState *env, target_ulong addr, int mmu_idx);
+
+void taint_helper_stb_mmu(CPUArchState *env, target_ulong addr,
+                    uint8_t val, int mmu_idx);
+void taint_helper_stw_mmu(CPUArchState *env, target_ulong addr,
+                    uint16_t val, int mmu_idx);
+void taint_helper_stl_mmu(CPUArchState *env, target_ulong addr,
+                    uint32_t val, int mmu_idx);
+void taint_helper_stq_mmu(CPUArchState *env, target_ulong addr,
+                    uint64_t val, int mmu_idx);
+
+uint8_t taint_helper_ldb_cmmu(CPUArchState *env, target_ulong addr, int mmu_idx);
+uint16_t taint_helper_ldw_cmmu(CPUArchState *env, target_ulong addr, int mmu_idx);
+uint32_t taint_helper_ldl_cmmu(CPUArchState *env, target_ulong addr, int mmu_idx);
+uint64_t taint_helper_ldq_cmmu(CPUArchState *env, target_ulong addr, int mmu_idx);
+#endif /* CONFIG_TCG_TAINT */
+
+#if 0
 #ifdef CONFIG_TCG_TAINT
 uint8_t REGPARM __taint_ldb_mmu(target_ulong addr, int mmu_idx);
 void REGPARM __taint_stb_mmu(target_ulong addr, uint8_t val, int mmu_idx);
@@ -201,6 +224,7 @@ void REGPARM __taint_stl_cmmu(target_ulong addr, uint32_t val, int mmu_idx);
 uint64_t REGPARM __taint_ldq_cmmu(target_ulong addr, int mmu_idx);
 void REGPARM __taint_stq_cmmu(target_ulong addr, uint64_t val, int mmu_idx);
 #endif /* CONFIG_TCG_TAINT */
+#endif
 
 #define CPU_MMU_INDEX 0
 #define MEMSUFFIX MMU_MODE0_SUFFIX

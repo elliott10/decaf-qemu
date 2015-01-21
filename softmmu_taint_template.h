@@ -299,12 +299,12 @@ WORD_TYPE taint_helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_
     haddr = addr + env->tlb_table[mmu_idx][index].addend;
 #if DATA_SIZE == 1
     res = glue(glue(ld, LSUFFIX), _p)((uint8_t *)haddr);
-    //glue(glue(__taint_ld, SUFFIX), _p)((unsigned long)haddr, addr);
-    glue(glue(taint_helper_ld, SUFFIX), _p)((unsigned long)haddr, addr);
+//    glue(glue(taint_helper_ld, SUFFIX), _p)((unsigned long)haddr, addr);
+    glue(glue(__taint_ld, SUFFIX), _raw)((unsigned long)haddr,addr);
 #else
     res = glue(glue(ld, LSUFFIX), _le_p)((uint8_t *)haddr);
-    //glue(glue(__taint_ld, SUFFIX), _le_p)((unsigned long)haddr, addr);
-    glue(glue(taint_helper_ld, SUFFIX), _le_p)((unsigned long)haddr, addr);
+    //glue(glue(taint_helper_ld, SUFFIX), _le_p)((unsigned long)haddr, addr);
+    glue(glue(__taint_ld, SUFFIX), _raw)((unsigned long)haddr,addr);
 #endif
     //Hu-Mem read callback
 #ifndef SOFTMMU_CODE_ACCESS
@@ -436,8 +436,8 @@ WORD_TYPE taint_helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_
 
     haddr = addr + env->tlb_table[mmu_idx][index].addend;
     res = glue(glue(ld, LSUFFIX), _be_p)((uint8_t *)haddr);
-    //glue(glue(__taint_ld, SUFFIX), _be_p)((unsigned long)haddr, addr);
-    glue(glue(taint_helper_ld, SUFFIX), _be_p)((unsigned long)haddr, addr);
+//    glue(glue(taint_helper_ld, SUFFIX), _be_p)((unsigned long)haddr, addr);
+    glue(glue(__taint_ld, SUFFIX), _raw)((unsigned long)haddr,addr);
     //Hu-Mem read callback
 #ifndef SOFTMMU_CODE_ACCESS
 
@@ -514,8 +514,8 @@ static inline void glue(taint_io_write, SUFFIX)(CPUArchState *env,
 #endif
     //end
     if (index == (IO_MEM_NOTDIRTY>>IO_MEM_SHIFT))
-	    glue(glue(taint_helper_st, SUFFIX), _raw_paddr)(physaddr,addr);
-	    //glue(glue(__taint_st, SUFFIX), _raw_paddr)(physaddr,addr);
+//	    glue(glue(taint_helper_st, SUFFIX), _raw_paddr)(physaddr,addr);
+	    glue(glue(__taint_st, SUFFIX), _raw_paddr)(physaddr,addr);
 
     /* Clean tempidx */  
     //env->tempidx = 0;
@@ -623,12 +623,12 @@ do_unaligned_access:
     haddr = addr + env->tlb_table[mmu_idx][index].addend;
 #if DATA_SIZE == 1
     glue(glue(st, SUFFIX), _p)((uint8_t *)haddr, val);
-    glue(glue(taint_helper_st, SUFFIX), _p)((unsigned long)haddr, addr);
-    //glue(glue(__taint_st, SUFFIX), _p)((unsigned long)haddr, addr);
+//    glue(glue(taint_helper_st, SUFFIX), _p)((unsigned long)haddr, addr);
+    glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)haddr,addr);
 #else
     glue(glue(st, SUFFIX), _le_p)((uint8_t *)haddr, val);
-    glue(glue(taint_helper_st, SUFFIX), _le_p)((unsigned long)haddr, addr);
-    //glue(glue(__taint_st, SUFFIX), _le_p)((unsigned long)haddr, addr);
+    //glue(glue(taint_helper_st, SUFFIX), _le_p)((unsigned long)haddr, addr);
+    glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)haddr,addr);
 #endif
     //Hu-Mem write callback
 #ifndef SOFTMMU_CODE_ACCESS
@@ -727,8 +727,9 @@ do_unaligned_access:
 
     haddr = addr + env->tlb_table[mmu_idx][index].addend;
     glue(glue(st, SUFFIX), _be_p)((uint8_t *)haddr, val);
-    glue(glue(taint_helper_st, SUFFIX), _be_p)((unsigned long)haddr, addr);
-    //glue(glue(__taint_st, SUFFIX), _be_p)((unsigned long)haddr, addr);
+    //glue(glue(taint_helper_st, SUFFIX), _be_p)((unsigned long)haddr, addr);
+    glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)haddr,addr);
+
     //Hu-Mem read callback
 #if defined(ADD_MEM_CB)
     if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
