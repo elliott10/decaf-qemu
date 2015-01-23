@@ -109,16 +109,17 @@ void DECAF_update_cpl(int cpl)
 
 gpa_t DECAF_get_phys_addr_with_pgd(CPUArchState* env, gpa_t pgd, gva_t addr)
 {
-	CPUState *cpu = ENV_GET_CPU(env);
-  if (cpu == NULL)
+  if (env == NULL)
   {
 #ifdef DECAF_NO_FAIL_SAFE
     return (INV_ADDR);
 #else
     //env = cpu_single_env ? cpu_single_env : first_cpu;
-    cpu = cpu_single_env ? cpu_single_env : first_cpu;
+    env = current_cpu ? cpu_single_env : (first_cpu->env_ptr);
 #endif
   }
+
+  CPUState *cpu = ENV_GET_CPU(env);
 
   target_ulong saved_cr3 = env->cr[3];
   uint32_t phys_addr;
@@ -160,7 +161,8 @@ int DECAF_get_page_access(CPUArchState* env, uint32_t addr)
   #ifdef DECAF_NO_FAIL_SAFE
       return (INV_ADDR);
   #else
-      env = cpu_single_env ? cpu_single_env : first_cpu;
+      //env = cpu_single_env ? cpu_single_env : first_cpu;
+      env = current_cpu ? cpu_single_env : (first_cpu->env_ptr);
   #endif
     }
     CPUState* cpu = ENV_GET_CPU(env);

@@ -487,7 +487,8 @@ uint32_t calc_tainted_bytes(void){
 /* Console control commands */
 void do_enable_tainting_internal(void) {
   if (!taint_tracking_enabled) {
-    CPUArchState *env = cpu_single_env ? cpu_single_env : first_cpu;
+    //CPUArchState *env = cpu_single_env ? cpu_single_env : first_cpu;
+    CPUArchState *env = current_cpu ? cpu_single_env : (first_cpu->env_ptr);
     DECAF_stop_vm();
     tb_flush(env);
     allocate_taint_memory_page_table();
@@ -498,7 +499,8 @@ void do_enable_tainting_internal(void) {
 
 void do_disable_tainting_internal(void) {
   if (taint_tracking_enabled) {
-    CPUArchState *env = cpu_single_env ? cpu_single_env : first_cpu;
+//    CPUArchState *env = cpu_single_env ? cpu_single_env : first_cpu;
+    CPUArchState *env = current_cpu ? cpu_single_env : (first_cpu->env_ptr);
 
     DECAF_stop_vm();
     tb_flush(env);
@@ -609,7 +611,9 @@ int do_taint_pointers(Monitor *mon, const QDict *qdict, QObject **ret_data) {
   else {
     CPUArchState *env;
     DECAF_stop_vm();
-    env = cpu_single_env ? cpu_single_env : first_cpu;
+    //env = cpu_single_env ? cpu_single_env : first_cpu;
+    env = current_cpu ? cpu_single_env : (first_cpu->env_ptr);
+
     taint_load_pointers_enabled = qdict_get_bool(qdict, "load");
     taint_store_pointers_enabled = qdict_get_bool(qdict, "store"); 
     DECAF_start_vm();

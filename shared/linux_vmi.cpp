@@ -906,7 +906,7 @@ void Linux_tlb_call_back(DECAF_Callback_Params *temp)
 static void check_procexit(void *) {
         /* AWH - cpu_single_env is invalid outside of the main exec thread */
 	CPUState *cpu = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
-	CPUArchState *env = (CPUArchState *)cpu->env_ptr;
+	CPUArchState *env = (CPUArchState *)(cpu->env_ptr);
 	timer_mod(recon_timer,
 				   qemu_clock_get_ns(vm_clock) + get_ticks_per_sec() * 10);
 

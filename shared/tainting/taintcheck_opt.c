@@ -255,7 +255,8 @@ int  taintcheck_check_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 	uint32_t size1, size2;
 	// uint8_t taint=0;
 	CPUArchState *env;
-	env = cpu_single_env ? cpu_single_env : first_cpu;
+//	env = cpu_single_env ? cpu_single_env : first_cpu;
+	env = current_cpu ? cpu_single_env : (first_cpu->env_ptr);
 
 	// AWH - If tainting is disabled, return no taint
 	if (!taint_tracking_enabled) {
@@ -298,7 +299,8 @@ int  taintcheck_taint_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 	uint32_t size1, size2;
 	// uint8_t taint=0;
 	CPUArchState *env;
-	env = cpu_single_env ? cpu_single_env : first_cpu;
+//	env = cpu_single_env ? cpu_single_env : first_cpu;
+	env = current_cpu ? cpu_single_env : (first_cpu->env_ptr);
 
 	// AWH - If tainting is disabled, return no taint
 	if (!taint_tracking_enabled) {

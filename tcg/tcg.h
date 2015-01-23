@@ -942,6 +942,7 @@ void taint_helper_be_stq_mmu(CPUArchState *env, target_ulong addr, uint64_t val,
 # define helper_ret_stq_mmu   helper_le_stq_mmu
 #endif
 
+#ifdef CONFIG_TCG_TAINT
 #ifdef TARGET_WORDS_BIGENDIAN
 # define taint_helper_ret_ldsw_mmu  taint_helper_be_ldsw_mmu
 # define taint_helper_ret_lduw_mmu  taint_helper_be_lduw_mmu
@@ -960,6 +961,7 @@ void taint_helper_be_stq_mmu(CPUArchState *env, target_ulong addr, uint64_t val,
 # define taint_helper_ret_stw_mmu   taint_helper_le_stw_mmu
 # define taint_helper_ret_stl_mmu   taint_helper_le_stl_mmu
 # define taint_helper_ret_stq_mmu   taint_helper_le_stq_mmu
+#endif
 #endif
 
 #endif /* CONFIG_SOFTMMU */

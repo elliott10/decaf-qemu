@@ -8068,7 +8068,7 @@ void optimize_flags_init(void)
         [R_ESP] = "esp",
 #endif
     };
-
+#ifdef CONFIG_TCG_TAINT
     static const char taint_reg_names[CPU_NB_REGS][4] = {
 #ifdef TARGET_X86_64
         [R_EAX] = "taint_rax",
@@ -8098,6 +8098,7 @@ void optimize_flags_init(void)
         [R_ESP] = "taint_esp",
 #endif
     };
+#endif
 
     int i;
 

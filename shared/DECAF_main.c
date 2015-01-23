@@ -39,6 +39,8 @@
 #include "tainting/taintcheck_opt.h"
 #endif /* CONFIG_TCG_TAINT */
 
+#include "hw/isa/isa.h"
+
 #ifdef CONFIG_VMI_ENABLE
 extern void VMI_init(void);
 #endif
@@ -100,7 +102,7 @@ gpa_t DECAF_get_phys_addr(CPUArchState* env, gva_t addr)
 #ifdef DECAF_NO_FAIL_SAFE
 		return(INV_ADDR);
 #else
-		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
+		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu->env_ptr;
 #endif
 	}
 
@@ -129,7 +131,7 @@ DECAF_errno_t DECAF_memory_rw(CPUArchState* env, uint32_t addr, void *buf, int l
 #ifdef DECAF_NO_FAIL_SAFE
 		return(INV_ADDR);
 #else
-		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
+		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu->env_ptr;
 #endif
 	}
 
@@ -163,7 +165,7 @@ DECAF_errno_t DECAF_memory_rw_with_pgd(CPUArchState* env, target_ulong pgd,
 #ifdef DECAF_NO_FAIL_SAFE
 		return (INV_ADDR);
 #else
-		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
+		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu->env_ptr;
 #endif
 	}
 
@@ -237,14 +239,14 @@ static TranslationBlock *DECAF_tb_find_slow(CPUArchState *env, target_ulong pc) 
 }
 
 // This is the same as tb_find_fast except we invalidate at the end
-void DECAF_flushTranslationBlock_env(CPUState *env, uint32_t addr) {
+void DECAF_flushTranslationBlock_env(CPUArchState *env, uint32_t addr) {
 	TranslationBlock *tb;
 
 	if (env == NULL ) {
 #ifdef DECAF_NO_FAIL_SAFE
 		return;
 #else
-		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
+		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu->env_ptr;
 #endif
 
 	}
@@ -259,13 +261,13 @@ void DECAF_flushTranslationBlock_env(CPUState *env, uint32_t addr) {
 	tb_phys_invalidate(tb, -1);
 }
 
-void DECAF_flushTranslationPage_env(CPUState* env, uint32_t addr)
+void DECAF_flushTranslationPage_env(CPUArchState* env, uint32_t addr)
 {
 	if (env == NULL ) {
 #ifdef DECAF_NO_FAIL_SAFE
 		return;
 #else
-		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu;
+		env = /* AWH cpu_single_env ? cpu_single_env :*/ first_cpu->env_ptr;
 #endif
 	}
 
@@ -568,8 +570,11 @@ const MemoryRegionOps DECAF_virtdev_io_ops = {
 void DECAF_virtdev_init(void) {
 //	int res = register_ioport_write(0x68, 1, 1, DECAF_virtdev_write_data, NULL);
 
-	memory_region_init_io(NULL, NULL, &DECAF_virtdev_io_ops, NULL, "DECAF_virtdev", 1);
-	memory_region_add_subregion(NULL, 0x68, NULL);
+	ISABus *isa_bus = (ISABus *) object_resolve_path_type("", TYPE_ISA_BUS, NULL);
+	MemoryRegion *mr = g_malloc0(sizeof(MemoryRegion));
+
+	memory_region_init_io(mr, NULL, &DECAF_virtdev_io_ops, NULL, "DECAF_virtdev", 1);
+	memory_region_add_subregion((MemoryRegion *)(isa_bus->address_space_io), 0x68, mr);
 	/*
 	if (res) {
 		fprintf(stderr, "failure on initializing DECAF virtual device\n");
