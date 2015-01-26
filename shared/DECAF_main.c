@@ -71,6 +71,7 @@ static void convert_endian_4b(uint32_t *data);
 static gpa_t _DECAF_get_phys_addr(CPUArchState* env, gva_t addr) {
 	int mmu_idx, index;
 	uint32_t phys_addr;
+	CPUState *cpu = ENV_GET_CPU(env);
 
 	index = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
 	mmu_idx = cpu_mmu_index(env);
@@ -80,7 +81,7 @@ static gpa_t _DECAF_get_phys_addr(CPUArchState* env, gva_t addr) {
 		if (__builtin_expect(
 				env->tlb_table[mmu_idx][index].addr_code
 						!= (addr & TARGET_PAGE_MASK), 0)) {
-			phys_addr = cpu_get_phys_page_debug(env, addr & TARGET_PAGE_MASK);
+			phys_addr = cpu_get_phys_page_debug(cpu, addr & TARGET_PAGE_MASK);
 			if (phys_addr == -1)
 				return -1;
 			phys_addr += addr & (TARGET_PAGE_SIZE - 1);

@@ -47,7 +47,8 @@ uint32_t cr3_stack[MAX_STACK_SIZE];
 uint32_t stack_top = 0;
 void check_call(DECAF_Callback_Params *param)
 {
-	CPUState *env=param->be.env;
+	//CPUState *env=param->be.env;
+	CPUArchState *env=param->be.env;
 	if(env == NULL)
 	return;
 	target_ulong pc = param->be.next_pc;

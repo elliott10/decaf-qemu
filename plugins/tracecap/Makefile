@@ -15,6 +15,7 @@ DEFINES+=-D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -DNEED_CPU_H
 DEFINES+=-I$(LLCONF_PATH)/install/include
 DEFINES+=-I$(GLIB_CFLAGS)
 #DEFINES+=-I$(SLEUTHKIT_PATH)/src/fstools -I$(SLEUTHKIT_PATH)/src/auxtools -I$(SLEUTHKIT_PATH)/src/imgtools -DLINUX2 -DTRACE_ENABLED
+DEFINES+=-I$(SRC_PATH)/include -I$(SRC_PATH)/target-$(TARGET_NAME) -I$(SRC_PATH)/include/sysemu -I$(SRC_PATH)/include/qemu -I$(SRC_PATH)/include/exec -I$(SRC_PATH)/include/block -I$(SRC_PATH)/include/qapi -I$(SRC_PATH)/include/qapi/qmp -I$(SRC_PATH)/include/libdecnumber
 
 CC=gcc
 CPP=g++

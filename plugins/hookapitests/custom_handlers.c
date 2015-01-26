@@ -56,7 +56,8 @@ void NtCreateFile_ret_handler(void *opaque)
 	monitor_printf(default_mon, "NtCreateFile_ret\n");
 	uint32_t esp, offset;
 	uint32_t i,j;
-	CPUState *cpu;
+	//CPUState *cpu;
+	CPUArchState *cpu;
 	cpu = cpu_single_env;
 
 	UNICODE_STRING ObjectName;
@@ -85,7 +86,7 @@ void NtCreateFile_ret_handler(void *opaque)
 			if(ObjectName.Buffer && ObjectName.Length){
 				Buffer = (char *) malloc (sizeof(char) * ObjectName.Length);
 				if(Buffer != '\0') {
-					cpu_memory_rw_debug(cpu_single_env, (target_ulong)ObjectName.Buffer, (uint8_t *)&unicode_str, ObjectName.Length, 0);
+					cpu_memory_rw_debug(current_cpu, (target_ulong)ObjectName.Buffer, (uint8_t *)&unicode_str, ObjectName.Length, 0);
 					for (i = 0, j = 0; i < ObjectName.Length; i+=2, j++)
 						Buffer[j] = unicode_str[i];
 					Buffer[j] = '\0';

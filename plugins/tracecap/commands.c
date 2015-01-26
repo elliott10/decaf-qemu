@@ -256,7 +256,7 @@ static void do_tracing_by_name_internal(const char *progname,
 }
 
 void tracing_insn_begin(DECAF_Callback_Params* params) {
-	CPUState* env = NULL;
+	CPUArchState* env = NULL;
 #if 0 // AWH
 	if (params != NULL) {
 		env = params->ib.env;
@@ -307,7 +307,7 @@ void tracing_insn_begin(DECAF_Callback_Params* params) {
 }
 
 void tracing_insn_end(DECAF_Callback_Params* params) {
-	CPUState * env;
+	CPUArchState * env;
 
 	/* If not decoding, return */
 	if (skip_decode_address || !params)

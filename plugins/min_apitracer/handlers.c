@@ -228,7 +228,8 @@ int readustr(uint32_t addr, void *buf)
 		int j, i;
 		uint8_t unicode_str[MAX_UNICODE_LENGTH] = {'\0'};
 		char *store = (char *) buf;
-		CPUState *env = cpu_single_env ? cpu_single_env : first_cpu;
+		//CPUState *env = cpu_single_env ? cpu_single_env : first_cpu;
+		CPUArchState *env = current_cpu ? cpu_single_env : (first_cpu->env_ptr);
 
 	    if(DECAF_read_mem(env, addr,  sizeof(unicode_data),(uint8_t *)&unicode_data) < 0) {
 	            printf("DECAF_read_mem(0x%08x, %d) returned non-zero.\n", addr, sizeof(unicode_data));
@@ -314,7 +315,7 @@ void cdecl_ret_handler(void *opaque)
 	struct api_entry *api;
 	struct apiarg *args;
 	int bytes_read;
-	CPUState *cpu;
+	CPUArchState *cpu;
 	uint32_t tid;
 
 	bytes_read = 0;
@@ -385,7 +386,7 @@ void cdecl_handler(struct api_entry *api_act)
 	target_ulong ret_addr, offset;
 	int bytes_read;
 	struct apiarg *args;
-	CPUState *cpu;
+	CPUArchState *cpu;
 
 	//A new api instance.
 	struct api_entry *api = (struct api_entry *) malloc (sizeof(struct api_entry) + api_act->numargs * sizeof(struct apiarg));

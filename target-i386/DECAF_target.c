@@ -119,7 +119,7 @@ gpa_t DECAF_get_phys_addr_with_pgd(CPUArchState* env, gpa_t pgd, gva_t addr)
 #endif
   }
 
-  CPUState *cpu = ENV_GET_CPU(env);
+  CPUState *cpu = current_cpu;
 
   target_ulong saved_cr3 = env->cr[3];
   uint32_t phys_addr;
@@ -165,7 +165,7 @@ int DECAF_get_page_access(CPUArchState* env, uint32_t addr)
       env = current_cpu ? cpu_single_env : (first_cpu->env_ptr);
   #endif
     }
-    CPUState* cpu = ENV_GET_CPU(env);
+    CPUState* cpu = current_cpu;
 
     if (env->cr[4] & CR4_PAE_MASK) {
 	uint32_t pdpe_addr, pde_addr, pte_addr;

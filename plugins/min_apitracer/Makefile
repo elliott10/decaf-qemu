@@ -14,6 +14,8 @@ DEFINES=-I. -I$(SRC_PATH) -I$(SRC_PATH)/plugins -I$(SRC_PATH)/fpu -I$(SRC_PATH)/
 DEFINES+=-D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -DNEED_CPU_H
 DEFINES+=-I$(GLIB_CFLAGS)
 
+DEFINES+=-I$(SRC_PATH)/include -I$(SRC_PATH)/target-$(TARGET_NAME) -I$(SRC_PATH)/include/sysemu -I$(SRC_PATH)/include/qemu -I$(SRC_PATH)/include/exec -I$(SRC_PATH)/include/block -I$(SRC_PATH)/include/qapi -I$(SRC_PATH)/include/qapi/qmp -I$(SRC_PATH)/include/libdecnumber
+
 CC=gcc
 CPP=g++
 CFLAGS=-Wall -O2 -g -fPIC -MMD -Wno-unused-variable 

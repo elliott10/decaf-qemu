@@ -17,7 +17,8 @@ http://code.google.com/p/decaf-platform/
 
 #include "DECAF_target.h"
 #include "DECAF_main.h"
-#include "qemu-objects.h"
+//#include "qemu-objects.h"
+#include "qapi/qmp/types.h"
 #include "vmi_c_wrapper.h" //for find_pid();
 
 

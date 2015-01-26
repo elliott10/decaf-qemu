@@ -885,7 +885,7 @@ static void help_cmd(Monitor *mon, const char *name)
 	if (decaf_plugin && decaf_plugin->mon_cmds)
 		help_cmd_dump(mon, decaf_plugin->mon_cmds, args, nb_args, 0);
 
-	if (!strcmp(name, "info")) {
+	if (name && !strcmp(name, "info")) {
 		//LOK: Added the DECAF commands
 		if (DECAF_info_cmds != NULL)
 		{
@@ -3732,11 +3732,11 @@ static const mon_cmd_t *search_dispatch_table(const mon_cmd_t *disp_table,
 }
 
 //decaf
-static const mon_cmd_t *monitor_find_command(const char *cmdname)
+static const mon_cmd_t *monitor_find_command(const mon_cmd_t *disp_table, const char *cmdname)
 {
 	const mon_cmd_t *cmd;
 	// AWH - search the standard monitor cmds first
-	cmd = search_dispatch_table(mon_cmds, cmdname);
+	cmd = search_dispatch_table(disp_table, cmdname);
 	if (cmd) return cmd;
 
 	//LOK: Now search the DECAF's default commands
@@ -3810,7 +3810,8 @@ static const mon_cmd_t *monitor_parse_command(Monitor *mon,
     if (!p)
         return NULL;
 
-    cmd = search_dispatch_table(table, cmdname);
+//    cmd = search_dispatch_table(table, cmdname);
+    cmd = monitor_find_command(table, cmdname);
     if (!cmd) {
         monitor_printf(mon, "unknown command: '%.*s'\n",
                        (int)(p - cmdline), cmdline);
@@ -4556,9 +4557,12 @@ static void do_sendkey(Monitor *mon, const QDict *qdict)
 void do_send_key(const char *string)
 {
 	QDict *qdict = qdict_new();
-	qdict_put(qdict, "string", qstring_from_str(string));
+	qdict_put(qdict, "keys", qstring_from_str(string));
+	//qdict_put(qdict, "string", qstring_from_str(string));
+	//printf("monitor.c: do_send_key(), string:%s, qstring_from_str():0x%x \n", string, qstring_from_str(string));
 	do_sendkey(default_mon, qdict);
-	qdict_del(qdict, "string");
+	qdict_del(qdict, "keys");
+	//qdict_del(qdict, "string");
 	//LOK: Changed to QDECREF according to its definition in qobject.h
 	QDECREF(qdict);
 	//qobject_decref(qdict);
