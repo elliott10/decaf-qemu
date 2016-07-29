@@ -877,7 +877,8 @@ void helper_be_stl_mmu(CPUArchState *env, target_ulong addr, uint32_t val,
 void helper_be_stq_mmu(CPUArchState *env, target_ulong addr, uint64_t val,
                        int mmu_idx, uintptr_t retaddr);
 
-#ifdef CONFIG_TCG_TAINT
+//#ifdef CONFIG_TCG_TAINT
+#if 0
 tcg_target_ulong taint_helper_ret_ldub_mmu(CPUArchState *env, target_ulong addr,
                                      int mmu_idx, uintptr_t retaddr);
 tcg_target_ulong taint_helper_le_lduw_mmu(CPUArchState *env, target_ulong addr,
@@ -942,25 +943,26 @@ void taint_helper_be_stq_mmu(CPUArchState *env, target_ulong addr, uint64_t val,
 # define helper_ret_stq_mmu   helper_le_stq_mmu
 #endif
 
-#ifdef CONFIG_TCG_TAINT
+//#ifdef CONFIG_TCG_TAINT
+#if 0
 #ifdef TARGET_WORDS_BIGENDIAN
-# define taint_helper_ret_ldsw_mmu  taint_helper_be_ldsw_mmu
-# define taint_helper_ret_lduw_mmu  taint_helper_be_lduw_mmu
-# define taint_helper_ret_ldsl_mmu  taint_helper_be_ldsl_mmu
-# define taint_helper_ret_ldul_mmu  taint_helper_be_ldul_mmu
-# define taint_helper_ret_ldq_mmu   taint_helper_be_ldq_mmu
-# define taint_helper_ret_stw_mmu   taint_helper_be_stw_mmu
-# define taint_helper_ret_stl_mmu   taint_helper_be_stl_mmu
-# define taint_helper_ret_stq_mmu   taint_helper_be_stq_mmu
+# define taint_helper_ret_ldsw_mmu  helper_be_ldsw_mmu
+# define taint_helper_ret_lduw_mmu  helper_be_lduw_mmu
+# define taint_helper_ret_ldsl_mmu  helper_be_ldsl_mmu
+# define taint_helper_ret_ldul_mmu  helper_be_ldul_mmu
+# define taint_helper_ret_ldq_mmu   helper_be_ldq_mmu
+# define taint_helper_ret_stw_mmu   helper_be_stw_mmu
+# define taint_helper_ret_stl_mmu   helper_be_stl_mmu
+# define taint_helper_ret_stq_mmu   helper_be_stq_mmu
 #else
-# define taint_helper_ret_ldsw_mmu  taint_helper_le_ldsw_mmu
-# define taint_helper_ret_lduw_mmu  taint_helper_le_lduw_mmu
-# define taint_helper_ret_ldsl_mmu  taint_helper_le_ldsl_mmu
-# define taint_helper_ret_ldul_mmu  taint_helper_le_ldul_mmu
-# define taint_helper_ret_ldq_mmu   taint_helper_le_ldq_mmu
-# define taint_helper_ret_stw_mmu   taint_helper_le_stw_mmu
-# define taint_helper_ret_stl_mmu   taint_helper_le_stl_mmu
-# define taint_helper_ret_stq_mmu   taint_helper_le_stq_mmu
+# define taint_helper_ret_ldsw_mmu  helper_le_ldsw_mmu
+# define taint_helper_ret_lduw_mmu  helper_le_lduw_mmu
+# define taint_helper_ret_ldsl_mmu  helper_le_ldsl_mmu
+# define taint_helper_ret_ldul_mmu  helper_le_ldul_mmu
+# define taint_helper_ret_ldq_mmu   helper_le_ldq_mmu
+# define taint_helper_ret_stw_mmu   helper_le_stw_mmu
+# define taint_helper_ret_stl_mmu   helper_le_stl_mmu
+# define taint_helper_ret_stq_mmu   helper_le_stq_mmu
 #endif
 #endif
 

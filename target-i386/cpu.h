@@ -853,7 +853,7 @@ typedef struct CPUX86State {
     target_ulong cc_dst;
     target_ulong cc_src;
 #ifdef CONFIG_TCG_TAINT
-    target_ulong taint_cc_src, taint_cc_dst;
+    target_ulong taint_cc_src, taint_cc_dst, taint_cc_src2;
 #endif /* CONFIG_TCG_TAINT */
     target_ulong cc_src2;
     uint32_t cc_op;

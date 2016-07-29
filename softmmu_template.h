@@ -588,7 +588,8 @@ glue(glue(helper_st, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_ulong addr,
 }
 
 #endif /* !defined(SOFTMMU_CODE_ACCESS) */
-#ifdef CONFIG_TCG_TAINT
+//#ifdef CONFIG_TCG_TAINT
+#if 0
 /* Include the "taint" version of these functions */
 #include "softmmu_taint_template.h"
 #endif /* CONFIG_TCG_TAINT */

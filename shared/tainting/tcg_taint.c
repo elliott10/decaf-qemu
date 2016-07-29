@@ -2797,19 +2797,22 @@ static inline int gen_taintcheck_insn(int search_pc)
 int optimize_taint(int search_pc) {
 int retVal;
 #ifdef USE_TCG_OPTIMIZATIONS    
+    /*
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP_OPT))) {
         qemu_log("OP partial buffer before optimization:\n");
         tcg_dump_ops(&tcg_ctx);
         qemu_log("\n");
     }
+    */
 
     tcg_ctx.gen_opparam_ptr =
-        tcg_optimize(&tcg_ctx, tcg_ctx.gen_opc_ptr, gen_opparam_buf, tcg_op_defs);
+        tcg_optimize(&tcg_ctx, tcg_ctx.gen_opc_ptr, tcg_ctx.gen_opparam_buf, tcg_op_defs);
 #if 0 // AWH - Causes phantom taint in tempidx, so remove for now
     build_liveness_metadata(&tcg_ctx);
 #endif // AWH
 #endif
     block_count++;    
+    /*
     if (unlikely(qemu_loglevel_mask(
       CPU_LOG_TB_OUT_ASM | CPU_LOG_TB_IN_ASM | 
       CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT)) )
@@ -2823,14 +2826,19 @@ int retVal;
         //tcg_dump_ops(&tcg_ctx, logfile);
         qemu_log("\n");
     }
+    */
 
+#if 1
     retVal = gen_taintcheck_insn(search_pc);
+#endif
+    /*
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP))) {
         qemu_log("OP after taint instrumentation\n");
         tcg_dump_ops(&tcg_ctx);
         //tcg_dump_ops(&tcg_ctx, logfile);
         qemu_log("\n");
     }
+    */
 
     return(retVal);
 }

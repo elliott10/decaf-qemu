@@ -100,7 +100,7 @@ static TCGv_i32 cpu_cc_op;
 static TCGv cpu_regs[CPU_NB_REGS];
 #ifdef CONFIG_TCG_TAINT
 static TCGv taint_cpu_regs[CPU_NB_REGS];
-static TCGv /*taint_cpu_A0,*/ taint_cpu_cc_src, taint_cpu_cc_dst, taint_cpu_cc_tmp;
+static TCGv /*taint_cpu_A0,*/ taint_cpu_cc_src, taint_cpu_cc_dst, taint_cpu_cc_src2; //taint_cpu_cc_tmp;
 static TCGv eip_taint;
 // AWH - Now in shared/DECAF_tcg_taint.c static TCGv tempidx, tempidx2;
 #endif /* CONFIG_TCG_TAINT */
@@ -451,7 +451,8 @@ static inline void gen_op_jmp_v(TCGv dest)
 //For DECAF_EIP_CHECK_CB -by Hu
 #ifdef CONFIG_TCG_TAINT
     TCGv t1 = tcg_const_ptr(cur_pc);
-    tcg_gen_DECAF_checkeip(t1, cpu_T[0]);
+    tcg_gen_DECAF_checkeip(t1, dest);
+    //tcg_gen_DECAF_checkeip(t1, cpu_T[0]);
 #endif
 }
 
@@ -8069,7 +8070,7 @@ void optimize_flags_init(void)
 #endif
     };
 #ifdef CONFIG_TCG_TAINT
-    static const char taint_reg_names[CPU_NB_REGS][4] = {
+    static const char taint_reg_names[CPU_NB_REGS][12] = {
 #ifdef TARGET_X86_64
         [R_EAX] = "taint_rax",
         [R_EBX] = "taint_rbx",
@@ -8118,12 +8119,14 @@ void optimize_flags_init(void)
     taint_cpu_cc_dst = tcg_global_mem_new(TCG_AREG0, offsetof(CPUArchState, taint_cc_dst),
 		    "taint_cc_dst");
     //taint_cpu_cc_tmp = tcg_global_mem_new(TCG_AREG0, offsetof(CPUArchState, taint_cc_tmp),
-//		    "taint_cc_tmp");
+    taint_cpu_cc_src2 = tcg_global_mem_new(TCG_AREG0, offsetof(CPUArchState, taint_cc_src2),
+		    "taint_cc_src2");
 
     eip_taint = tcg_global_mem_new(TCG_AREG0, offsetof(CPUArchState, eip_taint),
 		    "eip_taint");
     shadow_arg[(int)cpu_cc_src] = taint_cpu_cc_src;
     shadow_arg[(int)cpu_cc_dst] = taint_cpu_cc_dst;
+    shadow_arg[(int)cpu_cc_src2] = taint_cpu_cc_src2;
  //   shadow_arg[(int)cpu_cc_tmp] = taint_cpu_cc_tmp;
 #endif /* CONFIG_TCG_TAINT */
 
@@ -8247,6 +8250,15 @@ void optimize_flags_init(void)
 		    offsetof(CPUX86State, tempidx2), "tempidx2");
 #endif
 #endif
+	TCGContext *xly_s = &tcg_ctx;
+	TCGTemp *xly_ts;
+	/*
+	for(i=0; i < xly_s->nb_globals; ++i)
+	{
+	xly_ts = &xly_s->temps[i];
+	printf("name:%s \n",xly_ts->name);
+	}
+	*/
 }
 
 #ifdef CONFIG_TCG_IR_LOG
@@ -8384,6 +8396,9 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
         max_insns = CF_COUNT_MASK;
 
     gen_tb_start();
+
+//decaf debug
+//  taint_tracking_enabled = 0;
 
     if(DECAF_is_BlockBeginCallback_needed(tb->pc))
     {
